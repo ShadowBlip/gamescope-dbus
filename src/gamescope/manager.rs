@@ -24,9 +24,19 @@ impl DBusInterface {
         // TODO: Handle errors
         let xwaylands_names = gamescope_x11_client::discover_gamescope_displays().unwrap();
         for (i, name) in xwaylands_names.into_iter().enumerate() {
-            let xwayland = xwayland::DBusInterface::new(name)?;
+            // Create a new DBus interface to the xwayland instance
+            let instance = xwayland::DBusInterface::new(name.clone())?;
             let path = format!("/org/shadowblip/Gamescope/XWayland{}", i);
-            self.dbus.object_server().at(path, xwayland).await?;
+
+            // Check to see if this is a primary xwayland instance. If it is,
+            // also attach the dbus interface with extra methods
+            if instance.primary().await? {
+                println!("Gamescope is primary!");
+                let primary = xwayland::DBusInterfacePrimary::new(name)?;
+                self.dbus.object_server().at(path.clone(), primary).await?;
+            }
+
+            self.dbus.object_server().at(path, instance).await?;
         }
 
         Ok(())

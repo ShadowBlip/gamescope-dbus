@@ -55,6 +55,10 @@ all: build debug ## Build release and debug builds
 run: debug ## Build and run
 	./target/debug/$(NAME)
 
+.PHONY: gamescope
+gamescope: ## Run a test gamescope instance
+	/usr/bin/gamescope -w 1280 -h 720 --xwayland-count 2 -- glxgears
+
 .PHONY: clean
 clean: ## Remove build artifacts
 	rm -rf target

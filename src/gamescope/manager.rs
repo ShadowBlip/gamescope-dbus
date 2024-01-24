@@ -196,7 +196,7 @@ impl Manager {
             // Check to see if this is a primary xwayland instance. If it is,
             // also attach the dbus interface with extra methods
             if instance.primary().await? {
-                println!("Gamescope is primary!");
+                log::debug!("Discovered XWayland {} is primary", name);
                 let primary = xwayland::DBusInterfacePrimary::new(name.clone())?;
                 let changes_rx = primary.listen_for_property_changes()?;
                 self.dbus.object_server().at(path.clone(), primary).await?;
@@ -220,15 +220,15 @@ impl Manager {
 
 /// DBus interface imeplementation for Gamescope Manager instance
 pub struct DBusInterface {
-    /// Connection to the DBus bus
-    dbus: Connection,
+    //// Connection to the DBus bus
+    //dbus: Connection,
 }
 
 impl DBusInterface {
     /// Returns a new instance of the XWayland DBus interface. Will error if
     /// it cannot establish a connection.
-    pub fn new(conn: Connection) -> DBusInterface {
-        DBusInterface { dbus: conn }
+    pub fn new() -> DBusInterface {
+        DBusInterface {}
     }
 }
 

@@ -16,7 +16,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Create an instance of Gamescope Manager and its DBus interface
     let mut manager = gamescope::manager::Manager::new(connection.clone());
-    let manager_dbus = gamescope::manager::DBusInterface::new(connection.clone());
+    let manager_dbus = gamescope::manager::DBusInterface::new();
     manager.update_xwaylands().await?;
 
     // Serve the Gamescope Manager interace on DBus

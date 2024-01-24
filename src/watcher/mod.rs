@@ -18,7 +18,6 @@ pub enum WatchEvent {
         mask: EventMask,
         path: String,
     },
-    Other {},
 }
 
 /// Watch for filesystem changes on the given path, sending [WatchEvent]

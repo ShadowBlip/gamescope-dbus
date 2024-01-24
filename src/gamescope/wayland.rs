@@ -2,7 +2,7 @@ use std::os::unix::net::UnixStream;
 use wayland_client::{protocol::wl_registry, Connection, Dispatch, QueueHandle};
 
 use gamescope_wayland_client::{
-    control::gamescope_control::{self, GamescopeControl, ScreenshotFlags, ScreenshotType},
+    control::gamescope_control::{self, GamescopeControl},
     input_method::gamescope_input_method_manager::{self, GamescopeInputMethodManager},
 };
 
@@ -111,6 +111,7 @@ impl Dispatch<GamescopeInputMethodManager, ()> for AppData {
     }
 }
 
+#[allow(dead_code)]
 fn main() {
     println!("Hello, gamescope!");
     let socket_path = "/run/user/1000/gamescope-0";

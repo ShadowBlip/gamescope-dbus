@@ -3,7 +3,7 @@ use gamescope_x11_client::{
     xwayland::{BlurMode, Primary, XWayland},
 };
 use std::{error::Error, sync::mpsc::Receiver};
-use zbus::{fdo, MessageHeader, ObjectServer, SignalContext};
+use zbus::{fdo, SignalContext};
 use zbus_macros::dbus_interface;
 
 /// DBus interface imeplementation for Gamescope XWayland instance
@@ -120,35 +120,6 @@ impl DBusInterfacePrimary {
 
 #[dbus_interface(name = "org.shadowblip.Gamescope.XWayland.Primary")]
 impl DBusInterfacePrimary {
-    pub async fn foo(&mut self) {
-        println!("Foo");
-    }
-
-    pub async fn quit(
-        &self,
-        #[zbus(header)] hdr: MessageHeader<'_>,
-        #[zbus(signal_context)] ctxt: SignalContext<'_>,
-        #[zbus(object_server)] _server: &ObjectServer,
-    ) -> fdo::Result<()> {
-        let path = hdr.path()?.unwrap();
-        let msg = format!("You are leaving me on the {} path?", path);
-
-        // Do some asynchronous tasks before quitting..
-
-        Ok(())
-    }
-
-    // TODO: We may not need this
-    #[dbus_interface(property)]
-    async fn input_counter(&self) -> fdo::Result<u32> {
-        let root_id = self.xwayland.get_root_window_id().unwrap();
-        let value = self
-            .xwayland
-            .get_one_xprop(root_id, GamescopeAtom::InputCounter)
-            .map_err(|err| fdo::Error::Failed(err.to_string()))?;
-        Ok(value.unwrap_or_default())
-    }
-
     #[dbus_interface(property)]
     async fn focusable_apps(&self) -> fdo::Result<Vec<u32>> {
         let value = self
@@ -440,13 +411,6 @@ pub async fn dispatch_property_changes(
                     });
             } else if event == GamescopeAtom::BaselayerWindow.to_string() {
                 DBusInterfacePrimary::baselayer_window_updated(iface_ref.signal_context())
-                    .await
-                    .unwrap_or_else(|error| {
-                        log::warn!("Unable to signal value change: {:?}", error)
-                    });
-            } else if event == GamescopeAtom::InputCounter.to_string() {
-                iface
-                    .input_counter_changed(iface_ref.signal_context())
                     .await
                     .unwrap_or_else(|error| {
                         log::warn!("Unable to signal value change: {:?}", error)

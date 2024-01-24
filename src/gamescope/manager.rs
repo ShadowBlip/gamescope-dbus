@@ -198,7 +198,12 @@ impl Manager {
             if instance.primary().await? {
                 println!("Gamescope is primary!");
                 let primary = xwayland::DBusInterfacePrimary::new(name.clone())?;
+                let changes_rx = primary.listen_for_property_changes()?;
                 self.dbus.object_server().at(path.clone(), primary).await?;
+
+                // Propagate gamescope changes to DBus signals
+                xwayland::dispatch_property_changes(self.dbus.clone(), path.clone(), changes_rx)
+                    .await?;
             }
 
             self.dbus.object_server().at(path.clone(), instance).await?;

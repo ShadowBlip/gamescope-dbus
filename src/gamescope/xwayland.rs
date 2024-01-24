@@ -1,6 +1,9 @@
-use gamescope_x11_client::xwayland::{BlurMode, Primary, XWayland};
-use std::error::Error;
-use zbus::fdo;
+use gamescope_x11_client::{
+    atoms::GamescopeAtom,
+    xwayland::{self, BlurMode, Primary, XWayland},
+};
+use std::{error::Error, sync::mpsc::Receiver};
+use zbus::{fdo, MessageHeader, ObjectServer, SignalContext};
 use zbus_macros::dbus_interface;
 
 /// DBus interface imeplementation for Gamescope XWayland instance
@@ -102,12 +105,50 @@ impl DBusInterfacePrimary {
     pub fn new(name: String) -> Result<DBusInterfacePrimary, Box<dyn Error>> {
         let mut xwayland = XWayland::new(name);
         xwayland.connect()?;
+
         Ok(DBusInterfacePrimary { xwayland })
+    }
+
+    /// Starts a new thread listening for gamescope property changes. Returns
+    /// a receiver channel where changes will be sent to. This is usually used
+    /// to process DBus property changes outside of the dispatched handler
+    pub fn listen_for_property_changes(&self) -> Result<Receiver<String>, Box<dyn Error>> {
+        let (_, rx) = self.xwayland.listen_for_property_changes()?;
+        Ok(rx)
     }
 }
 
 #[dbus_interface(name = "org.shadowblip.Gamescope.XWayland.Primary")]
 impl DBusInterfacePrimary {
+    pub async fn foo(&mut self) {
+        println!("Foo");
+    }
+
+    pub async fn quit(
+        &self,
+        #[zbus(header)] hdr: MessageHeader<'_>,
+        #[zbus(signal_context)] ctxt: SignalContext<'_>,
+        #[zbus(object_server)] _server: &ObjectServer,
+    ) -> fdo::Result<()> {
+        let path = hdr.path()?.unwrap();
+        let msg = format!("You are leaving me on the {} path?", path);
+
+        // Do some asynchronous tasks before quitting..
+
+        Ok(())
+    }
+
+    // TODO: We may not need this
+    #[dbus_interface(property)]
+    async fn input_counter(&self) -> fdo::Result<u32> {
+        let root_id = self.xwayland.get_root_window_id().unwrap();
+        let value = self
+            .xwayland
+            .get_one_xprop(root_id, GamescopeAtom::InputCounter)
+            .map_err(|err| fdo::Error::Failed(err.to_string()))?;
+        Ok(value.unwrap_or_default())
+    }
+
     #[dbus_interface(property)]
     async fn focusable_apps(&self) -> fdo::Result<Vec<u32>> {
         let value = self
@@ -252,6 +293,7 @@ impl DBusInterfacePrimary {
         Ok(())
     }
 
+    #[dbus_interface(out_args("is_focusable"))]
     async fn is_focusable_app(&self, window_id: u32) -> fdo::Result<bool> {
         let value = self
             .xwayland
@@ -331,4 +373,42 @@ impl DBusInterfacePrimary {
             .map_err(|err| fdo::Error::Failed(err.to_string()))?;
         Ok(())
     }
+}
+
+/// Listen for property changes and emit the appropriate DBus signals
+pub async fn dispatch_property_changes(
+    conn: zbus::Connection,
+    path: String,
+    rx: Receiver<String>,
+) -> Result<(), Box<dyn Error>> {
+    tokio::task::spawn(async move {
+        log::debug!("Started listening for property changes");
+        // Get the object instance at the given path
+        let iface_ref = conn
+            .object_server()
+            .interface::<_, DBusInterfacePrimary>(path)
+            .await
+            .expect("Unable to get reference to DBus interface");
+
+        // Wait for events from the channel
+        while let Ok(event) = rx.recv() {
+            log::debug!("Got property change event: {:?}", event);
+            let mut iface = iface_ref.get_mut().await;
+
+            if event == GamescopeAtom::FocusedApp.to_string() {
+                println!("Focused app changed");
+            } else if event == GamescopeAtom::BaselayerWindow.to_string() {
+                println!("Baselayer app changed");
+            } else if event == GamescopeAtom::InputCounter.to_string() {
+                println!("Input counter changed");
+                iface
+                    .input_counter_changed(iface_ref.signal_context())
+                    .await
+                    .unwrap();
+            }
+        }
+        log::warn!("Stopped listening for property changes");
+    });
+
+    Ok(())
 }

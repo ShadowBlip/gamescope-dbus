@@ -1,6 +1,6 @@
 use gamescope_x11_client::{
     atoms::GamescopeAtom,
-    xwayland::{self, BlurMode, Primary, XWayland},
+    xwayland::{BlurMode, Primary, XWayland},
 };
 use std::{error::Error, sync::mpsc::Receiver};
 use zbus::{fdo, MessageHeader, ObjectServer, SignalContext};
@@ -302,6 +302,9 @@ impl DBusInterfacePrimary {
         Ok(value)
     }
 
+    #[dbus_interface(signal)]
+    async fn baselayer_window_updated(ctxt: &SignalContext<'_>) -> zbus::Result<()>;
+
     async fn set_main_app(&self, window_id: u32) -> fdo::Result<()> {
         self.xwayland
             .set_main_app(window_id)
@@ -383,28 +386,71 @@ pub async fn dispatch_property_changes(
 ) -> Result<(), Box<dyn Error>> {
     tokio::task::spawn(async move {
         log::debug!("Started listening for property changes");
-        // Get the object instance at the given path
+        // Get the object instance at the given path so we can send DBus signal
+        // updates
         let iface_ref = conn
             .object_server()
             .interface::<_, DBusInterfacePrimary>(path)
             .await
             .expect("Unable to get reference to DBus interface");
 
-        // Wait for events from the channel
+        // Wait for events from the channel and dispatch them to the DBus interface
         while let Ok(event) = rx.recv() {
             log::debug!("Got property change event: {:?}", event);
-            let mut iface = iface_ref.get_mut().await;
+            let iface = iface_ref.get_mut().await;
 
+            // Match on the type of property that was changed to send the appropriate
+            // DBus signal.
+            // NOTE: These should only be defined for "read-only" properties
+            // TODO: Maybe this can be automatically expressed better using a macro
             if event == GamescopeAtom::FocusedApp.to_string() {
-                println!("Focused app changed");
+                iface
+                    .focused_app_changed(iface_ref.signal_context())
+                    .await
+                    .unwrap_or_else(|error| {
+                        log::warn!("Unable to signal value change: {:?}", error)
+                    });
+            } else if event == GamescopeAtom::FocusableApps.to_string() {
+                iface
+                    .focusable_apps_changed(iface_ref.signal_context())
+                    .await
+                    .unwrap_or_else(|error| {
+                        log::warn!("Unable to signal value change: {:?}", error)
+                    });
+            } else if event == GamescopeAtom::FocusedAppGFX.to_string() {
+                iface
+                    .focused_app_gfx_changed(iface_ref.signal_context())
+                    .await
+                    .unwrap_or_else(|error| {
+                        log::warn!("Unable to signal value change: {:?}", error)
+                    });
+            } else if event == GamescopeAtom::FocusedWindow.to_string() {
+                iface
+                    .focused_window_changed(iface_ref.signal_context())
+                    .await
+                    .unwrap_or_else(|error| {
+                        log::warn!("Unable to signal value change: {:?}", error)
+                    });
+            } else if event == GamescopeAtom::FocusableWindows.to_string() {
+                iface
+                    .focusable_windows_changed(iface_ref.signal_context())
+                    .await
+                    .unwrap_or_else(|error| {
+                        log::warn!("Unable to signal value change: {:?}", error)
+                    });
             } else if event == GamescopeAtom::BaselayerWindow.to_string() {
-                println!("Baselayer app changed");
+                DBusInterfacePrimary::baselayer_window_updated(iface_ref.signal_context())
+                    .await
+                    .unwrap_or_else(|error| {
+                        log::warn!("Unable to signal value change: {:?}", error)
+                    });
             } else if event == GamescopeAtom::InputCounter.to_string() {
-                println!("Input counter changed");
                 iface
                     .input_counter_changed(iface_ref.signal_context())
                     .await
-                    .unwrap();
+                    .unwrap_or_else(|error| {
+                        log::warn!("Unable to signal value change: {:?}", error)
+                    });
             }
         }
         log::warn!("Stopped listening for property changes");

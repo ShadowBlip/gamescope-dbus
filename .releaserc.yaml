@@ -44,5 +44,7 @@ plugins:
   # Publish artifacts as a GitHub release
   - - "@semantic-release/github"
     - assets:
+        - path: dist/gamescope-dbus-*.rpm
+        - path: dist/gamescope-dbus-*.rpm.sha256.txt
         - path: dist/gamescope-dbus.tar.gz
         - path: dist/gamescope-dbus.tar.gz.sha256.txt

@@ -3,8 +3,15 @@ name = "gamescope-dbus"
 version = "1.0.0"
 edition = "2021"
 license = "GPL-3.0-or-later"
+description = "Daemon for interacting with Gamescope over DBus"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+[package.metadata.generate-rpm]
+assets = [
+  { source = "./target/release/gamescope-dbus", dest = "/usr/bin/gamescope-dbus", mode = "755" },
+  { source = "./rootfs/usr/share/dbus-1/session.d/org.shadowblip.Gamescope.conf", dest = "/usr/share/dbus-1/session.d/org.shadowblip.Gamescope.conf", mode = "644" },
+  { source = "./rootfs/usr/share/dbus-1/services/org.shadowblip.Gamescope.service", dest = "/usr/share/dbus-1/services/org.shadowblip.Gamescope.service", mode = "644" },
+  { source = "./rootfs/usr/lib/systemd/user/gamescope-dbus.service", dest = "/usr/lib/systemd/user/gamescope-dbus.service", mode = "644" },
+]
 
 [dependencies]
 log = "0.4.20"

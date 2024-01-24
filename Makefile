@@ -1,4 +1,6 @@
 NAME := $(shell grep 'name =' Cargo.toml | head -n 1 | cut -d'"' -f2)
+VERSION := $(shell grep '^version =' Cargo.toml | cut -d'"' -f2)
+ARCH := $(shell uname -m)
 DBUS_NAME := org.shadowblip.Gamescope
 ALL_RS := $(shell find src -name '*.rs')
 PREFIX ?= /usr
@@ -53,12 +55,12 @@ uninstall: ## Uninstall gamescope-dbus
 
 .PHONY: debug
 debug: target/debug/$(NAME)  ## Build debug build
-target/debug/$(NAME): $(ALL_RS) Cargo.lock
+target/debug/$(NAME): $(ALL_RS) Cargo.lock Cargo.toml
 	cargo build
 
 .PHONY: build
 build: target/release/$(NAME) ## Build release build
-target/release/$(NAME): $(ALL_RS) Cargo.lock
+target/release/$(NAME): $(ALL_RS) Cargo.lock Cargo.toml
 	cargo build --release
 
 .PHONY: all
@@ -94,14 +96,26 @@ setup: /usr/share/dbus-1/session.d/$(DBUS_NAME).conf ## Install dbus policies
 ##@ Distribution
 
 .PHONY: dist
-dist: dist/gamescope-dbus.tar.gz ## Build a redistributable archive of the project
-dist/gamescope-dbus.tar.gz: build
+dist: dist/$(NAME).tar.gz dist/$(NAME)-$(VERSION)-1.$(ARCH).rpm ## Create all redistributable versions of the project
+
+.PHONY: dist-archive
+dist-archive: dist/$(NAME).tar.gz ## Build a redistributable archive of the project
+dist/$(NAME).tar.gz: build
 	rm -rf $(CACHE_DIR)/gamescope-dbus
 	mkdir -p $(CACHE_DIR)/gamescope-dbus
 	$(MAKE) install PREFIX=$(CACHE_DIR)/gamescope-dbus/usr NO_RELOAD=true
 	mkdir -p dist
 	tar cvfz $@ -C $(CACHE_DIR) gamescope-dbus
 	cd dist && sha256sum gamescope-dbus.tar.gz > gamescope-dbus.tar.gz.sha256.txt
+
+.PHONY: dist-rpm
+dist-rpm: dist/$(NAME)-$(VERSION)-1.$(ARCH).rpm ## Build a redistributable RPM package
+dist/$(NAME)-$(VERSION)-1.$(ARCH).rpm: target/release/$(NAME)
+	mkdir -p dist
+	cargo install cargo-generate-rpm
+	cargo generate-rpm
+	cp ./target/generate-rpm/$(NAME)-$(VERSION)-1.$(ARCH).rpm dist
+	cd dist && sha256sum $(NAME)-$(VERSION)-1.$(ARCH).rpm > $(NAME)-$(VERSION)-1.$(ARCH).rpm.sha256.txt
 
 .PHONY: introspect
 introspect: ## Generate DBus XML

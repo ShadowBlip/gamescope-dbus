@@ -8,13 +8,11 @@ license = "GPL-3.0-or-later"
 
 [dependencies]
 log = "0.4.20"
-simple_logger = "4.2.0"
+simple_logger = "4.3.3"
 tokio = { version = "*", features = ["full"] }
 wayland-client = "0.31.1"
 zbus = { version = "3.14.1", default-features = false, features = ["tokio"] }
 zbus_macros = "3.14.1"
 inotify = "0.10.2"
-#gamescope-wayland-client = { git = "https://github.com/ShadowBlip/gamescope-wayland-client.git", version = "0.1.0" }
-gamescope-wayland-client = { path = "../gamescope-wayland-client", version = "0.1.0" }
-#gamescope-x11-client = { git = "https://github.com/ShadowBlip/gamescope-x11-client.git", version = "0.1.0" }
-gamescope-x11-client = { path = "../gamescope-x11-client", version = "0.1.0" }
+gamescope-wayland-client = { git = "https://github.com/ShadowBlip/gamescope-wayland-client.git", version = "0.1.0" }
+gamescope-x11-client = { git = "https://github.com/ShadowBlip/gamescope-x11-client.git", version = "0.1.0" }

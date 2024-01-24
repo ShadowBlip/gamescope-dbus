@@ -522,6 +522,7 @@ dependencies = [
 [[package]]
 name = "gamescope-wayland-client"
 version = "0.1.0"
+source = "git+https://github.com/ShadowBlip/gamescope-wayland-client.git#848d93a2efeb86c8f32ea273bca6e29a8e77ff8c"
 dependencies = [
  "bitflags 2.4.1",
  "wayland-backend",
@@ -532,6 +533,7 @@ dependencies = [
 [[package]]
 name = "gamescope-x11-client"
 version = "0.1.0"
+source = "git+https://github.com/ShadowBlip/gamescope-x11-client.git#f2be4fa5e7936e42cb6317882b1907ea61e877d4"
 dependencies = [
  "strum",
  "strum_macros",

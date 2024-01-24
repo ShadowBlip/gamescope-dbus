@@ -1,0 +1,6 @@
+[Unit]
+Description=Gamescope DBus Service
+After=graphical-session.target
+
+[Service]
+ExecStart=/usr/bin/gamescope-dbus

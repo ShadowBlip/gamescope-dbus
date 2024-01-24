@@ -1,0 +1,121 @@
+<?xml version="1.0"?>
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.freedesktop.DBus.Peer">
+    <method name="Ping">
+    </method>
+    <method name="GetMachineId">
+      <arg type="s" direction="out"/>
+    </method>
+  </interface>
+  <interface name="org.shadowblip.Gamescope.XWayland">
+    <method name="GetWindowName">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="s" direction="out"/>
+    </method>
+    <method name="GetWindowChildren">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="au" direction="out"/>
+    </method>
+    <method name="GetAllWindows">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="au" direction="out"/>
+    </method>
+    <method name="GetAppId">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="u" direction="out"/>
+    </method>
+    <method name="SetAppId">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg name="app_id" type="u" direction="in"/>
+    </method>
+    <method name="HasAppId">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="b" direction="out"/>
+    </method>
+    <property name="Name" type="s" access="read"/>
+    <property name="Primary" type="b" access="read"/>
+    <property name="RootWindowId" type="u" access="read"/>
+  </interface>
+  <interface name="org.freedesktop.DBus.Introspectable">
+    <method name="Introspect">
+      <arg type="s" direction="out"/>
+    </method>
+  </interface>
+  <interface name="org.shadowblip.Gamescope.XWayland.Primary">
+    <method name="IsFocusableApp">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="b" direction="out"/>
+    </method>
+    <signal name="BaselayerWindowUpdated">
+    </signal>
+    <method name="SetMainApp">
+      <arg name="window_id" type="u" direction="in"/>
+    </method>
+    <method name="SetInputFocus">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg name="value" type="u" direction="in"/>
+    </method>
+    <method name="GetOverlay">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="u" direction="out"/>
+    </method>
+    <method name="SetOverlay">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg name="value" type="u" direction="in"/>
+    </method>
+    <method name="SetNotification">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg name="value" type="u" direction="in"/>
+    </method>
+    <method name="SetExternalOverlay">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg name="value" type="u" direction="in"/>
+    </method>
+    <method name="GetBaselayerWindow">
+      <arg type="u" direction="out"/>
+    </method>
+    <method name="SetBaselayerWindow">
+      <arg name="window_id" type="u" direction="in"/>
+    </method>
+    <method name="RemoveBaselayerWindow">
+    </method>
+    <method name="RequestScreenshot">
+    </method>
+    <property name="AllowTearing" type="b" access="readwrite"/>
+    <property name="BlurMode" type="u" access="readwrite"/>
+    <property name="BlurRadius" type="u" access="readwrite"/>
+    <property name="FocusableApps" type="au" access="read"/>
+    <property name="FocusableWindowNames" type="as" access="read"/>
+    <property name="FocusableWindows" type="au" access="read"/>
+    <property name="FocusedApp" type="u" access="read"/>
+    <property name="FocusedAppGfx" type="u" access="read"/>
+    <property name="FocusedWindow" type="u" access="read"/>
+    <property name="FpsLimit" type="u" access="readwrite"/>
+    <property name="OverlayFocused" type="b" access="read"/>
+  </interface>
+  <interface name="org.freedesktop.DBus.Properties">
+    <method name="Get">
+      <arg name="interface_name" type="s" direction="in"/>
+      <arg name="property_name" type="s" direction="in"/>
+      <arg type="v" direction="out"/>
+    </method>
+    <method name="Set">
+      <arg name="interface_name" type="s" direction="in"/>
+      <arg name="property_name" type="s" direction="in"/>
+      <arg name="value" type="v" direction="in"/>
+    </method>
+    <method name="GetAll">
+      <arg name="interface_name" type="s" direction="in"/>
+      <arg type="a{sv}" direction="out"/>
+    </method>
+    <!--
+     Emits the `org.freedesktop.DBus.Properties.PropertiesChanged` signal.
+     -->
+    <signal name="PropertiesChanged">
+      <arg name="interface_name" type="s"/>
+      <arg name="changed_properties" type="a{sv}"/>
+      <arg name="invalidated_properties" type="as"/>
+    </signal>
+  </interface>
+</node>

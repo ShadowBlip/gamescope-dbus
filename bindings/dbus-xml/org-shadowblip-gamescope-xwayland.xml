@@ -1,6 +1,199 @@
 <?xml version="1.0"?>
 <!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
 <node>
+  <interface name="org.shadowblip.Gamescope.XWayland.Primary">
+    <!--
+     Returns true if the window with the given window ID exists in focusable apps
+     -->
+    <method name="IsFocusableApp">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="b" direction="out"/>
+    </method>
+    <!--
+     Fires when the baselayer window has been updated
+     -->
+    <signal name="BaselayerWindowUpdated">
+    </signal>
+    <!--
+     Sets the given window as the main launcher app. This will set an X window
+     property called STEAM_GAME to 769 (Steam), which will make Gamescope
+     treat the window as the main overlay.
+     -->
+    <method name="SetMainApp">
+      <arg name="window_id" type="u" direction="in"/>
+    </method>
+    <!--
+     Set the given window as the primary overlay input focus. This should be set to
+     "1" whenever the overlay wants to intercept input from a game.
+     -->
+    <method name="SetInputFocus">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg name="value" type="u" direction="in"/>
+    </method>
+    <!--
+     Get the overlay status for the given window
+     -->
+    <method name="GetOverlay">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="u" direction="out"/>
+    </method>
+    <!--
+     Set the given window as the main overlay window
+     -->
+    <method name="SetOverlay">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg name="value" type="u" direction="in"/>
+    </method>
+    <!--
+     Set the given window as a notification. This should be set to "1" when some
+     UI wants to be shown but not intercept input.
+     -->
+    <method name="SetNotification">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg name="value" type="u" direction="in"/>
+    </method>
+    <!--
+     Set the given window as an external overlay window
+     -->
+    <method name="SetExternalOverlay">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg name="value" type="u" direction="in"/>
+    </method>
+    <!--
+     Returns the currently set manual focus
+     -->
+    <method name="GetBaselayerWindow">
+      <arg type="u" direction="out"/>
+    </method>
+    <!--
+     Focuses the given window
+     -->
+    <method name="SetBaselayerWindow">
+      <arg name="window_id" type="u" direction="in"/>
+    </method>
+    <!--
+     Removes the baselayer property to un-focus windows
+     -->
+    <method name="RemoveBaselayerWindow">
+    </method>
+    <!--
+     Request a screenshot from Gamescope
+     -->
+    <method name="RequestScreenshot">
+    </method>
+    <!--
+     Whether or not Gamescope should be allowed to screen tear
+     -->
+    <!--
+     Sets whether or not Gamescope should be allowed to screen tear
+     -->
+    <property name="AllowTearing" type="b" access="readwrite"/>
+    <!--
+     The Gamescope blur mode (0 - off, 1 - cond, 2 - always)
+     -->
+    <!--
+     Sets the Gamescope blur mode
+     -->
+    <property name="BlurMode" type="u" access="readwrite"/>
+    <!--
+     The blur radius size
+     -->
+    <!--
+     Sets the blur radius size
+     -->
+    <property name="BlurRadius" type="u" access="readwrite"/>
+    <!--
+     Return a list of focusable apps
+     -->
+    <property name="FocusableApps" type="au" access="read"/>
+    <!--
+     Returns a list of focusable window names
+     -->
+    <property name="FocusableWindowNames" type="as" access="read"/>
+    <!--
+     Returns a list of focusable window ids
+     -->
+    <property name="FocusableWindows" type="au" access="read"/>
+    <!--
+     Return the currently focused app id.
+     -->
+    <property name="FocusedApp" type="u" access="read"/>
+    <!--
+     Return the currently focused gfx app id.
+     -->
+    <property name="FocusedAppGfx" type="u" access="read"/>
+    <!--
+     Return the currently focused window id.
+     -->
+    <property name="FocusedWindow" type="u" access="read"/>
+    <!--
+     The current Gamescope FPS limit
+     -->
+    <!--
+     Sets the current Gamescope FPS limit
+     -->
+    <property name="FpsLimit" type="u" access="readwrite"/>
+    <!--
+     Returns whether or not the overlay window is currently focused
+     -->
+    <property name="OverlayFocused" type="b" access="read"/>
+  </interface>
+  <interface name="org.shadowblip.Gamescope.XWayland">
+    <!--
+     Returns the window name of the given window
+     -->
+    <method name="GetWindowName">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="s" direction="out"/>
+    </method>
+    <!--
+     Returns the window ids of the children of the given window
+     -->
+    <method name="GetWindowChildren">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="au" direction="out"/>
+    </method>
+    <!--
+     Recursively returns all child windows of the given window id
+     -->
+    <method name="GetAllWindows">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="au" direction="out"/>
+    </method>
+    <!--
+     Returns the currently set app ID on the given window
+     -->
+    <method name="GetAppId">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="u" direction="out"/>
+    </method>
+    <!--
+     Sets the app ID on the given window
+     -->
+    <method name="SetAppId">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg name="app_id" type="u" direction="in"/>
+    </method>
+    <!--
+     Returns whether or not the given window has an app ID set
+     -->
+    <method name="HasAppId">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="b" direction="out"/>
+    </method>
+    <!--
+     The X display name of the XWayland display (E.g. ":0", ":1")
+     -->
+    <property name="Name" type="s" access="read"/>
+    <!--
+     Returns true if this instance is the primary Gamescope xwayland instance
+     -->
+    <property name="Primary" type="b" access="read"/>
+    <!--
+     Returns the root window ID of the xwayland instance
+     -->
+    <property name="RootWindowId" type="u" access="read"/>
+  </interface>
   <interface name="org.freedesktop.DBus.Peer">
     <method name="Ping">
     </method>
@@ -8,91 +201,10 @@
       <arg type="s" direction="out"/>
     </method>
   </interface>
-  <interface name="org.shadowblip.Gamescope.XWayland">
-    <method name="GetWindowName">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg type="s" direction="out"/>
-    </method>
-    <method name="GetWindowChildren">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg type="au" direction="out"/>
-    </method>
-    <method name="GetAllWindows">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg type="au" direction="out"/>
-    </method>
-    <method name="GetAppId">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg type="u" direction="out"/>
-    </method>
-    <method name="SetAppId">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg name="app_id" type="u" direction="in"/>
-    </method>
-    <method name="HasAppId">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg type="b" direction="out"/>
-    </method>
-    <property name="Name" type="s" access="read"/>
-    <property name="Primary" type="b" access="read"/>
-    <property name="RootWindowId" type="u" access="read"/>
-  </interface>
   <interface name="org.freedesktop.DBus.Introspectable">
     <method name="Introspect">
       <arg type="s" direction="out"/>
     </method>
-  </interface>
-  <interface name="org.shadowblip.Gamescope.XWayland.Primary">
-    <method name="IsFocusableApp">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg type="b" direction="out"/>
-    </method>
-    <signal name="BaselayerWindowUpdated">
-    </signal>
-    <method name="SetMainApp">
-      <arg name="window_id" type="u" direction="in"/>
-    </method>
-    <method name="SetInputFocus">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg name="value" type="u" direction="in"/>
-    </method>
-    <method name="GetOverlay">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg type="u" direction="out"/>
-    </method>
-    <method name="SetOverlay">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg name="value" type="u" direction="in"/>
-    </method>
-    <method name="SetNotification">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg name="value" type="u" direction="in"/>
-    </method>
-    <method name="SetExternalOverlay">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg name="value" type="u" direction="in"/>
-    </method>
-    <method name="GetBaselayerWindow">
-      <arg type="u" direction="out"/>
-    </method>
-    <method name="SetBaselayerWindow">
-      <arg name="window_id" type="u" direction="in"/>
-    </method>
-    <method name="RemoveBaselayerWindow">
-    </method>
-    <method name="RequestScreenshot">
-    </method>
-    <property name="AllowTearing" type="b" access="readwrite"/>
-    <property name="BlurMode" type="u" access="readwrite"/>
-    <property name="BlurRadius" type="u" access="readwrite"/>
-    <property name="FocusableApps" type="au" access="read"/>
-    <property name="FocusableWindowNames" type="as" access="read"/>
-    <property name="FocusableWindows" type="au" access="read"/>
-    <property name="FocusedApp" type="u" access="read"/>
-    <property name="FocusedAppGfx" type="u" access="read"/>
-    <property name="FocusedWindow" type="u" access="read"/>
-    <property name="FpsLimit" type="u" access="readwrite"/>
-    <property name="OverlayFocused" type="b" access="read"/>
   </interface>
   <interface name="org.freedesktop.DBus.Properties">
     <method name="Get">

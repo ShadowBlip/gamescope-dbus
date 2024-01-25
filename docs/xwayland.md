@@ -1,103 +1,5 @@
 # XWayland DBus Interface API
 
-## org.freedesktop.DBus.Peer
-
-### Methods
-
-#### Ping
-
-#### GetMachineId
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| \*\*\*\* | *out* | *s* |  |
-
-### Signals
-
-## org.shadowblip.Gamescope.XWayland
-
-### Properties
-
-| Name | Access | Type | Description |
-| --- | :---: | :---: | --- |
-| **Name** | *read* | *s* |  |
-| **Primary** | *read* | *b* |  |
-| **RootWindowId** | *read* | *u* |  |
-
-### Methods
-
-#### GetWindowName
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **window_id** | *in* | *u* |  |
-| \*\*\*\* | *out* | *s* |  |
-
-#### GetWindowChildren
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **window_id** | *in* | *u* |  |
-| \*\*\*\* | *out* | *au* |  |
-
-#### GetAllWindows
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **window_id** | *in* | *u* |  |
-| \*\*\*\* | *out* | *au* |  |
-
-#### GetAppId
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **window_id** | *in* | *u* |  |
-| \*\*\*\* | *out* | *u* |  |
-
-#### SetAppId
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **window_id** | *in* | *u* |  |
-| **app_id** | *in* | *u* |  |
-
-#### HasAppId
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **window_id** | *in* | *u* |  |
-| \*\*\*\* | *out* | *b* |  |
-
-### Signals
-
-## org.freedesktop.DBus.Introspectable
-
-### Methods
-
-#### Introspect
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| \*\*\*\* | *out* | *s* |  |
-
-### Signals
-
 ## org.shadowblip.Gamescope.XWayland.Primary
 
 ### Properties
@@ -203,6 +105,104 @@
 ### Signals
 
 #### BaselayerWindowUpdated
+
+## org.shadowblip.Gamescope.XWayland
+
+### Properties
+
+| Name | Access | Type | Description |
+| --- | :---: | :---: | --- |
+| **Name** | *read* | *s* |  |
+| **Primary** | *read* | *b* |  |
+| **RootWindowId** | *read* | *u* |  |
+
+### Methods
+
+#### GetWindowName
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window_id** | *in* | *u* |  |
+| \*\*\*\* | *out* | *s* |  |
+
+#### GetWindowChildren
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window_id** | *in* | *u* |  |
+| \*\*\*\* | *out* | *au* |  |
+
+#### GetAllWindows
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window_id** | *in* | *u* |  |
+| \*\*\*\* | *out* | *au* |  |
+
+#### GetAppId
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window_id** | *in* | *u* |  |
+| \*\*\*\* | *out* | *u* |  |
+
+#### SetAppId
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window_id** | *in* | *u* |  |
+| **app_id** | *in* | *u* |  |
+
+#### HasAppId
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window_id** | *in* | *u* |  |
+| \*\*\*\* | *out* | *b* |  |
+
+### Signals
+
+## org.freedesktop.DBus.Peer
+
+### Methods
+
+#### Ping
+
+#### GetMachineId
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| \*\*\*\* | *out* | *s* |  |
+
+### Signals
+
+## org.freedesktop.DBus.Introspectable
+
+### Methods
+
+#### Introspect
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| \*\*\*\* | *out* | *s* |  |
+
+### Signals
 
 ## org.freedesktop.DBus.Properties
 

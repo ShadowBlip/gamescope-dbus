@@ -35,8 +35,7 @@ yay -S gamescope-dbus-bin
 Then start the service with:
 
 ```bash
-sudo systemctl enable gamescope-dbus
-sudo systemctl start gamescope-dbus
+systemctl --user enable --now gamescope-dbus
 ```
 
 ## Documentation

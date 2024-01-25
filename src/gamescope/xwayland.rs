@@ -23,11 +23,13 @@ impl DBusInterface {
 
 #[dbus_interface(name = "org.shadowblip.Gamescope.XWayland")]
 impl DBusInterface {
+    /// The X display name of the XWayland display (E.g. ":0", ":1")
     #[dbus_interface(property)]
     async fn name(&self) -> fdo::Result<String> {
         Ok(self.xwayland.get_name())
     }
 
+    /// Returns true if this instance is the primary Gamescope xwayland instance
     #[dbus_interface(property)]
     pub async fn primary(&self) -> fdo::Result<bool> {
         let value = self
@@ -37,6 +39,7 @@ impl DBusInterface {
         Ok(value)
     }
 
+    /// Returns the root window ID of the xwayland instance
     #[dbus_interface(property)]
     async fn root_window_id(&self) -> fdo::Result<u32> {
         let value = self
@@ -46,6 +49,7 @@ impl DBusInterface {
         Ok(value)
     }
 
+    /// Returns the window name of the given window
     async fn get_window_name(&self, window_id: u32) -> fdo::Result<String> {
         let name = self
             .xwayland
@@ -54,6 +58,7 @@ impl DBusInterface {
         Ok(name.unwrap_or_default())
     }
 
+    /// Returns the window ids of the children of the given window
     async fn get_window_children(&self, window_id: u32) -> fdo::Result<Vec<u32>> {
         let value = self
             .xwayland
@@ -62,6 +67,7 @@ impl DBusInterface {
         Ok(value)
     }
 
+    /// Recursively returns all child windows of the given window id
     async fn get_all_windows(&self, window_id: u32) -> fdo::Result<Vec<u32>> {
         let value = self
             .xwayland
@@ -70,6 +76,7 @@ impl DBusInterface {
         Ok(value)
     }
 
+    /// Returns the currently set app ID on the given window
     async fn get_app_id(&self, window_id: u32) -> fdo::Result<u32> {
         let value = self
             .xwayland
@@ -78,6 +85,7 @@ impl DBusInterface {
         Ok(value.unwrap_or_default())
     }
 
+    /// Sets the app ID on the given window
     async fn set_app_id(&self, window_id: u32, app_id: u32) -> fdo::Result<()> {
         self.xwayland
             .set_app_id(window_id, app_id)
@@ -85,6 +93,7 @@ impl DBusInterface {
         Ok(())
     }
 
+    /// Returns whether or not the given window has an app ID set
     async fn has_app_id(&self, window_id: u32) -> fdo::Result<bool> {
         let value = self
             .xwayland
@@ -120,6 +129,7 @@ impl DBusInterfacePrimary {
 
 #[dbus_interface(name = "org.shadowblip.Gamescope.XWayland.Primary")]
 impl DBusInterfacePrimary {
+    /// Return a list of focusable apps
     #[dbus_interface(property)]
     async fn focusable_apps(&self) -> fdo::Result<Vec<u32>> {
         let value = self
@@ -129,6 +139,7 @@ impl DBusInterfacePrimary {
         Ok(value.unwrap_or_default())
     }
 
+    /// Returns a list of focusable window ids
     #[dbus_interface(property)]
     async fn focusable_windows(&self) -> fdo::Result<Vec<u32>> {
         let value = self
@@ -138,6 +149,7 @@ impl DBusInterfacePrimary {
         Ok(value.unwrap_or_default())
     }
 
+    /// Returns a list of focusable window names
     #[dbus_interface(property)]
     async fn focusable_window_names(&self) -> fdo::Result<Vec<String>> {
         let value = self
@@ -147,6 +159,7 @@ impl DBusInterfacePrimary {
         Ok(value)
     }
 
+    /// Return the currently focused window id.
     #[dbus_interface(property)]
     async fn focused_window(&self) -> fdo::Result<u32> {
         let value = self
@@ -156,6 +169,7 @@ impl DBusInterfacePrimary {
         Ok(value.unwrap_or_default())
     }
 
+    /// Return the currently focused app id.
     #[dbus_interface(property)]
     async fn focused_app(&self) -> fdo::Result<u32> {
         let value = self
@@ -165,6 +179,7 @@ impl DBusInterfacePrimary {
         Ok(value.unwrap_or_default())
     }
 
+    /// Return the currently focused gfx app id.
     #[dbus_interface(property)]
     async fn focused_app_gfx(&self) -> fdo::Result<u32> {
         let value = self
@@ -174,6 +189,7 @@ impl DBusInterfacePrimary {
         Ok(value.unwrap_or_default())
     }
 
+    /// Returns whether or not the overlay window is currently focused
     #[dbus_interface(property)]
     async fn overlay_focused(&self) -> fdo::Result<bool> {
         let value = self
@@ -183,6 +199,7 @@ impl DBusInterfacePrimary {
         Ok(value)
     }
 
+    /// The current Gamescope FPS limit
     #[dbus_interface(property)]
     async fn fps_limit(&self) -> fdo::Result<u32> {
         let value = self
@@ -192,6 +209,7 @@ impl DBusInterfacePrimary {
         Ok(value.unwrap_or_default())
     }
 
+    /// Sets the current Gamescope FPS limit
     #[dbus_interface(property)]
     async fn set_fps_limit(&mut self, fps: u32) -> fdo::Result<()> {
         self.xwayland
@@ -200,6 +218,7 @@ impl DBusInterfacePrimary {
         Ok(())
     }
 
+    /// The Gamescope blur mode (0 - off, 1 - cond, 2 - always)
     #[dbus_interface(property)]
     async fn blur_mode(&self) -> fdo::Result<u32> {
         let value = self
@@ -216,6 +235,7 @@ impl DBusInterfacePrimary {
         }
     }
 
+    /// Sets the Gamescope blur mode
     #[dbus_interface(property)]
     async fn set_blur_mode(&mut self, mode: u32) -> fdo::Result<()> {
         let blur_mode = match mode {
@@ -230,6 +250,7 @@ impl DBusInterfacePrimary {
         Ok(())
     }
 
+    /// The blur radius size
     #[dbus_interface(property)]
     async fn blur_radius(&self) -> fdo::Result<u32> {
         //let value = self
@@ -239,6 +260,7 @@ impl DBusInterfacePrimary {
         Ok(0)
     }
 
+    /// Sets the blur radius size
     #[dbus_interface(property)]
     async fn set_blur_radius(&mut self, radius: u32) -> fdo::Result<()> {
         self.xwayland
@@ -247,6 +269,7 @@ impl DBusInterfacePrimary {
         Ok(())
     }
 
+    /// Whether or not Gamescope should be allowed to screen tear
     #[dbus_interface(property)]
     async fn allow_tearing(&self) -> fdo::Result<bool> {
         //let value = self
@@ -256,6 +279,7 @@ impl DBusInterfacePrimary {
         Ok(false)
     }
 
+    /// Sets whether or not Gamescope should be allowed to screen tear
     #[dbus_interface(property)]
     async fn set_allow_tearing(&mut self, allow: bool) -> fdo::Result<()> {
         self.xwayland
@@ -264,6 +288,7 @@ impl DBusInterfacePrimary {
         Ok(())
     }
 
+    /// Returns true if the window with the given window ID exists in focusable apps
     #[dbus_interface(out_args("is_focusable"))]
     async fn is_focusable_app(&self, window_id: u32) -> fdo::Result<bool> {
         let value = self
@@ -273,9 +298,13 @@ impl DBusInterfacePrimary {
         Ok(value)
     }
 
+    /// Fires when the baselayer window has been updated
     #[dbus_interface(signal)]
     async fn baselayer_window_updated(ctxt: &SignalContext<'_>) -> zbus::Result<()>;
 
+    /// Sets the given window as the main launcher app. This will set an X window
+    /// property called STEAM_GAME to 769 (Steam), which will make Gamescope
+    /// treat the window as the main overlay.
     async fn set_main_app(&self, window_id: u32) -> fdo::Result<()> {
         self.xwayland
             .set_main_app(window_id)
@@ -283,6 +312,8 @@ impl DBusInterfacePrimary {
         Ok(())
     }
 
+    /// Set the given window as the primary overlay input focus. This should be set to
+    /// "1" whenever the overlay wants to intercept input from a game.
     async fn set_input_focus(&self, window_id: u32, value: u32) -> fdo::Result<()> {
         self.xwayland
             .set_input_focus(window_id, value)
@@ -290,6 +321,7 @@ impl DBusInterfacePrimary {
         Ok(())
     }
 
+    /// Get the overlay status for the given window
     async fn get_overlay(&self, window_id: u32) -> fdo::Result<u32> {
         let value = self
             .xwayland
@@ -298,6 +330,7 @@ impl DBusInterfacePrimary {
         Ok(value.unwrap_or_default())
     }
 
+    /// Set the given window as the main overlay window
     async fn set_overlay(&self, window_id: u32, value: u32) -> fdo::Result<()> {
         self.xwayland
             .set_overlay(window_id, value)
@@ -305,6 +338,8 @@ impl DBusInterfacePrimary {
         Ok(())
     }
 
+    /// Set the given window as a notification. This should be set to "1" when some
+    /// UI wants to be shown but not intercept input.
     async fn set_notification(&self, window_id: u32, value: u32) -> fdo::Result<()> {
         self.xwayland
             .set_notification(window_id, value)
@@ -312,6 +347,7 @@ impl DBusInterfacePrimary {
         Ok(())
     }
 
+    /// Set the given window as an external overlay window
     async fn set_external_overlay(&self, window_id: u32, value: u32) -> fdo::Result<()> {
         self.xwayland
             .set_external_overlay(window_id, value)
@@ -319,6 +355,7 @@ impl DBusInterfacePrimary {
         Ok(())
     }
 
+    /// Returns the currently set manual focus
     async fn get_baselayer_window(&self) -> fdo::Result<u32> {
         let value = self
             .xwayland
@@ -327,6 +364,7 @@ impl DBusInterfacePrimary {
         Ok(value.unwrap_or_default())
     }
 
+    /// Focuses the given window
     async fn set_baselayer_window(&self, window_id: u32) -> fdo::Result<()> {
         self.xwayland
             .set_baselayer_window(window_id)
@@ -334,6 +372,7 @@ impl DBusInterfacePrimary {
         Ok(())
     }
 
+    /// Removes the baselayer property to un-focus windows
     async fn remove_baselayer_window(&self) -> fdo::Result<()> {
         self.xwayland
             .remove_baselayer_window()
@@ -341,6 +380,7 @@ impl DBusInterfacePrimary {
         Ok(())
     }
 
+    /// Request a screenshot from Gamescope
     async fn request_screenshot(&self) -> fdo::Result<()> {
         self.xwayland
             .request_screenshot()

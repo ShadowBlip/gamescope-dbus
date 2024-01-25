@@ -349,14 +349,31 @@ impl DBusInterfacePrimary {
     }
 }
 
-/// Listen for property changes and emit the appropriate DBus signals
+/// Listen for property changes and emit the appropriate DBus signals. This is
+/// split into two methods to bridge the gap between the sync world and the async
+/// world.
 pub async fn dispatch_property_changes(
     conn: zbus::Connection,
     path: String,
     rx: Receiver<String>,
 ) -> Result<(), Box<dyn Error>> {
-    tokio::task::spawn(async move {
+    tokio::task::spawn_blocking(move || {
         log::debug!("Started listening for property changes");
+
+        // Wait for events from the channel and dispatch them to the DBus interface
+        while let Ok(event) = rx.recv() {
+            log::debug!("Got property change event: {:?}", event);
+            dispatch_to_dbus(conn.clone(), path.clone(), event);
+        }
+        log::warn!("Stopped listening for property changes");
+    });
+
+    Ok(())
+}
+
+/// Dispatch the given event to DBus using async
+fn dispatch_to_dbus(conn: zbus::Connection, path: String, event: String) {
+    tokio::task::spawn(async move {
         // Get the object instance at the given path so we can send DBus signal
         // updates
         let iface_ref = conn
@@ -365,60 +382,42 @@ pub async fn dispatch_property_changes(
             .await
             .expect("Unable to get reference to DBus interface");
 
-        // Wait for events from the channel and dispatch them to the DBus interface
-        while let Ok(event) = rx.recv() {
-            log::debug!("Got property change event: {:?}", event);
-            let iface = iface_ref.get_mut().await;
+        log::debug!("Got property change event: {:?}", event);
+        let iface = iface_ref.get_mut().await;
 
-            // Match on the type of property that was changed to send the appropriate
-            // DBus signal.
-            // NOTE: These should only be defined for "read-only" properties
-            // TODO: Maybe this can be automatically expressed better using a macro
-            if event == GamescopeAtom::FocusedApp.to_string() {
-                iface
-                    .focused_app_changed(iface_ref.signal_context())
-                    .await
-                    .unwrap_or_else(|error| {
-                        log::warn!("Unable to signal value change: {:?}", error)
-                    });
-            } else if event == GamescopeAtom::FocusableApps.to_string() {
-                iface
-                    .focusable_apps_changed(iface_ref.signal_context())
-                    .await
-                    .unwrap_or_else(|error| {
-                        log::warn!("Unable to signal value change: {:?}", error)
-                    });
-            } else if event == GamescopeAtom::FocusedAppGFX.to_string() {
-                iface
-                    .focused_app_gfx_changed(iface_ref.signal_context())
-                    .await
-                    .unwrap_or_else(|error| {
-                        log::warn!("Unable to signal value change: {:?}", error)
-                    });
-            } else if event == GamescopeAtom::FocusedWindow.to_string() {
-                iface
-                    .focused_window_changed(iface_ref.signal_context())
-                    .await
-                    .unwrap_or_else(|error| {
-                        log::warn!("Unable to signal value change: {:?}", error)
-                    });
-            } else if event == GamescopeAtom::FocusableWindows.to_string() {
-                iface
-                    .focusable_windows_changed(iface_ref.signal_context())
-                    .await
-                    .unwrap_or_else(|error| {
-                        log::warn!("Unable to signal value change: {:?}", error)
-                    });
-            } else if event == GamescopeAtom::BaselayerWindow.to_string() {
-                DBusInterfacePrimary::baselayer_window_updated(iface_ref.signal_context())
-                    .await
-                    .unwrap_or_else(|error| {
-                        log::warn!("Unable to signal value change: {:?}", error)
-                    });
-            }
+        // Match on the type of property that was changed to send the appropriate
+        // DBus signal.
+        // NOTE: These should only be defined for "read-only" properties
+        // TODO: Maybe this can be automatically expressed better using a macro
+        if event == GamescopeAtom::FocusedApp.to_string() {
+            iface
+                .focused_app_changed(iface_ref.signal_context())
+                .await
+                .unwrap_or_else(|error| log::warn!("Unable to signal value change: {:?}", error));
+        } else if event == GamescopeAtom::FocusableApps.to_string() {
+            iface
+                .focusable_apps_changed(iface_ref.signal_context())
+                .await
+                .unwrap_or_else(|error| log::warn!("Unable to signal value change: {:?}", error));
+        } else if event == GamescopeAtom::FocusedAppGFX.to_string() {
+            iface
+                .focused_app_gfx_changed(iface_ref.signal_context())
+                .await
+                .unwrap_or_else(|error| log::warn!("Unable to signal value change: {:?}", error));
+        } else if event == GamescopeAtom::FocusedWindow.to_string() {
+            iface
+                .focused_window_changed(iface_ref.signal_context())
+                .await
+                .unwrap_or_else(|error| log::warn!("Unable to signal value change: {:?}", error));
+        } else if event == GamescopeAtom::FocusableWindows.to_string() {
+            iface
+                .focusable_windows_changed(iface_ref.signal_context())
+                .await
+                .unwrap_or_else(|error| log::warn!("Unable to signal value change: {:?}", error));
+        } else if event == GamescopeAtom::BaselayerWindow.to_string() {
+            DBusInterfacePrimary::baselayer_window_updated(iface_ref.signal_context())
+                .await
+                .unwrap_or_else(|error| log::warn!("Unable to signal value change: {:?}", error));
         }
-        log::warn!("Stopped listening for property changes");
     });
-
-    Ok(())
 }

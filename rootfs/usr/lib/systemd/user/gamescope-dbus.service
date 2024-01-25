@@ -1,6 +1,10 @@
 [Unit]
 Description=Gamescope DBus Service
-After=graphical-session.target
 
 [Service]
+Type=dbus
+BusName=org.shadowblip.Gamescope
 ExecStart=/usr/bin/gamescope-dbus
+
+[Install]
+WantedBy=default.target

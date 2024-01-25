@@ -506,7 +506,7 @@ dependencies = [
 
 [[package]]
 name = "gamescope-dbus"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "gamescope-wayland-client",
  "gamescope-x11-client",

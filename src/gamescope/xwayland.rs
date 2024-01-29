@@ -2,22 +2,38 @@ use gamescope_x11_client::{
     atoms::GamescopeAtom,
     xwayland::{BlurMode, Primary, XWayland},
 };
-use std::{error::Error, sync::mpsc::Receiver};
-use zbus::{fdo, SignalContext};
+use std::{collections::HashMap, error::Error, sync::mpsc::Receiver};
+use tokio::task::AbortHandle;
+use zbus::{fdo, Connection, SignalContext};
 use zbus_macros::dbus_interface;
 
 /// DBus interface imeplementation for Gamescope XWayland instance
 pub struct DBusInterface {
+    path: String,
     xwayland: XWayland,
+    dbus: Connection,
+    watched_windows: Vec<u32>,
+    watch_handles: HashMap<u32, AbortHandle>,
 }
 
 impl DBusInterface {
     /// Returns a new instance of the XWayland DBus interface. Will error if
     /// it cannot establish a connection.
-    pub fn new(name: String) -> Result<DBusInterface, Box<dyn Error>> {
+    pub fn new(
+        name: String,
+        path: String,
+        dbus: Connection,
+    ) -> Result<DBusInterface, Box<dyn Error>> {
         let mut xwayland = XWayland::new(name);
         xwayland.connect()?;
-        Ok(DBusInterface { xwayland })
+        let watched_windows = Vec::new();
+        Ok(DBusInterface {
+            path,
+            xwayland,
+            watched_windows,
+            dbus,
+            watch_handles: HashMap::new(),
+        })
     }
 }
 
@@ -45,6 +61,118 @@ impl DBusInterface {
         let value = self
             .xwayland
             .get_root_window_id()
+            .map_err(|err| fdo::Error::Failed(err.to_string()))?;
+        Ok(value)
+    }
+
+    /// List of windows currently being watched for property changes. The
+    /// [WindowPropertyChanged] signal will fire whenever one of these windows
+    /// has a property change.
+    #[dbus_interface(property)]
+    async fn watched_windows(&self) -> Vec<u32> {
+        self.watched_windows.clone()
+    }
+
+    /// Emitted when a window property changes on a watched window.
+    #[dbus_interface(signal)]
+    async fn window_property_changed(
+        ctxt: &SignalContext<'_>,
+        window: u32,
+        prop: String,
+    ) -> zbus::Result<()>;
+
+    /// Start watching the given window. The [WindowPropertyChanged] signal
+    /// will fire whenever a window property changes on the window. Use
+    /// [UnwatchWindow] to stop watching the given window.
+    async fn watch_window(&mut self, window_id: u32) -> fdo::Result<()> {
+        // If the window is already being watched, do nothing
+        if self.watched_windows.contains(&window_id) {
+            return Ok(());
+        }
+
+        // Spawn a new thread to listen for property changes for the given window
+        let (_, rx) = self
+            .xwayland
+            .listen_for_window_property_changes(window_id)
+            .map_err(|err| fdo::Error::Failed(err.to_string()))?;
+
+        // Create a closure to run whenever a property changes on this window
+        let dispatch_to_dbus = |conn: Connection, path: String, event: String, id: u32| {
+            tokio::task::spawn(async move {
+                // Get the object instance at the given path so we can send DBus signal
+                // updates
+                let iface_ref = conn
+                    .object_server()
+                    .interface::<_, DBusInterface>(path)
+                    .await
+                    .expect("Unable to get reference to DBus interface");
+
+                log::debug!("Got property change event: {:?}", event);
+
+                // Emit the property changed signal for this window
+                DBusInterface::window_property_changed(iface_ref.signal_context(), id, event)
+                    .await
+                    .unwrap_or_else(|error| {
+                        log::warn!("Unable to signal value change: {:?}", error)
+                    });
+            });
+        };
+
+        // Spawn a task to process the messages in the receiver
+        let conn = self.dbus.clone();
+        let path = self.path.clone();
+        let handle = tokio::task::spawn_blocking(move || {
+            log::debug!(
+                "Started listening for property changes for window {}",
+                window_id
+            );
+
+            // Wait for events from the channel and dispatch them to the DBus interface
+            while let Ok(event) = rx.recv() {
+                log::debug!("Got property change event: {:?}", event);
+                dispatch_to_dbus(conn.clone(), path.clone(), event, window_id);
+            }
+            log::warn!("Stopped listening for property changes");
+        })
+        .abort_handle();
+
+        // Add to the list of windows we're watching
+        self.watched_windows.push(window_id);
+        self.watch_handles.insert(window_id, handle);
+
+        Ok(())
+    }
+
+    /// Stop watching the given window. The [WindowPropertyChanged] signal will
+    /// no longer fire for the given window.
+    async fn unwatch_window(&mut self, window_id: u32) -> fdo::Result<()> {
+        let index = self.watched_windows.iter().position(|x| *x == window_id);
+        if index.is_none() {
+            return Ok(());
+        }
+
+        // Remove the element and stop watching
+        self.watched_windows.remove(index.unwrap());
+        let handle = self.watch_handles.remove(&window_id).unwrap();
+        handle.abort();
+
+        Ok(())
+    }
+
+    /// Discover the process IDs that are associated with the given window
+    async fn get_pids_for_window(&self, window_id: u32) -> fdo::Result<Vec<u32>> {
+        let value = self
+            .xwayland
+            .get_pids_for_window(window_id)
+            .map_err(|err| fdo::Error::Failed(err.to_string()))?;
+        Ok(value)
+    }
+
+    /// Returns the window id(s) for the given process ID.
+    async fn get_windows_for_pid(&self, pid: u32) -> fdo::Result<Vec<u32>> {
+        let value = self
+            .xwayland
+            .get_windows_for_pid(pid)
             .map_err(|err| fdo::Error::Failed(err.to_string()))?;
         Ok(value)
     }
@@ -392,7 +520,7 @@ impl DBusInterfacePrimary {
 /// Listen for property changes and emit the appropriate DBus signals. This is
 /// split into two methods to bridge the gap between the sync world and the async
 /// world.
-pub async fn dispatch_property_changes(
+pub async fn dispatch_primary_property_changes(
     conn: zbus::Connection,
     path: String,
     rx: Receiver<String>,
@@ -403,7 +531,7 @@ pub async fn dispatch_property_changes(
         // Wait for events from the channel and dispatch them to the DBus interface
         while let Ok(event) = rx.recv() {
             log::debug!("Got property change event: {:?}", event);
-            dispatch_to_dbus(conn.clone(), path.clone(), event);
+            dispatch_primary_to_dbus(conn.clone(), path.clone(), event);
         }
         log::warn!("Stopped listening for property changes");
     });
@@ -412,7 +540,7 @@ pub async fn dispatch_property_changes(
 }
 
 /// Dispatch the given event to DBus using async
-fn dispatch_to_dbus(conn: zbus::Connection, path: String, event: String) {
+fn dispatch_primary_to_dbus(conn: zbus::Connection, path: String, event: String) {
     tokio::task::spawn(async move {
         // Get the object instance at the given path so we can send DBus signal
         // updates

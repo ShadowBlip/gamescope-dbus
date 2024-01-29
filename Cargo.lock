@@ -506,7 +506,7 @@ dependencies = [
 
 [[package]]
 name = "gamescope-dbus"
-version = "1.0.3"
+version = "1.1.0"
 dependencies = [
  "gamescope-wayland-client",
  "gamescope-x11-client",
@@ -533,7 +533,7 @@ dependencies = [
 [[package]]
 name = "gamescope-x11-client"
 version = "0.1.0"
-source = "git+https://github.com/ShadowBlip/gamescope-x11-client.git#f2be4fa5e7936e42cb6317882b1907ea61e877d4"
+source = "git+https://github.com/ShadowBlip/gamescope-x11-client.git?rev=f02fa9c07a357a85c31417390910aa4babfa3771#f02fa9c07a357a85c31417390910aa4babfa3771"
 dependencies = [
  "strum",
  "strum_macros",

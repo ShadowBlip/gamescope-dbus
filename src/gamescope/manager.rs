@@ -190,8 +190,9 @@ impl Manager {
             }
 
             // Create a new DBus interface to the xwayland instance
-            let instance = xwayland::DBusInterface::new(name.clone())?;
             let path = format!("/org/shadowblip/Gamescope/XWayland{}", i);
+            let instance =
+                xwayland::DBusInterface::new(name.clone(), path.clone(), self.dbus.clone())?;
 
             // Check to see if this is a primary xwayland instance. If it is,
             // also attach the dbus interface with extra methods
@@ -202,8 +203,12 @@ impl Manager {
                 self.dbus.object_server().at(path.clone(), primary).await?;
 
                 // Propagate gamescope changes to DBus signals
-                xwayland::dispatch_property_changes(self.dbus.clone(), path.clone(), changes_rx)
-                    .await?;
+                xwayland::dispatch_primary_property_changes(
+                    self.dbus.clone(),
+                    path.clone(),
+                    changes_rx,
+                )
+                .await?;
             }
 
             self.dbus.object_server().at(path.clone(), instance).await?;

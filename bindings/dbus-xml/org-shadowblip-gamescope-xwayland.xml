@@ -1,6 +1,140 @@
 <?xml version="1.0"?>
 <!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
 <node>
+  <interface name="org.shadowblip.Gamescope.XWayland">
+    <!--
+     Emitted when a window property changes on a watched window.
+     -->
+    <signal name="WindowPropertyChanged">
+      <arg name="window" type="u"/>
+      <arg name="prop" type="s"/>
+    </signal>
+    <!--
+     Start watching the given window. The [WindowPropertyChanged] signal
+     will fire whenever a window property changes on the window. Use
+     [UnwatchWindow] to stop watching the given window.
+     -->
+    <method name="WatchWindow">
+      <arg name="window_id" type="u" direction="in"/>
+    </method>
+    <!--
+     Stop watching the given window. The [WindowPropertyChanged] signal will
+     no longer fire for the given window.
+     -->
+    <method name="UnwatchWindow">
+      <arg name="window_id" type="u" direction="in"/>
+    </method>
+    <!--
+     Discover the process IDs that are associated with the given window
+     -->
+    <method name="GetPidsForWindow">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="au" direction="out"/>
+    </method>
+    <!--
+     Returns the window id(s) for the given process ID.
+     -->
+    <method name="GetWindowsForPid">
+      <arg name="pid" type="u" direction="in"/>
+      <arg type="au" direction="out"/>
+    </method>
+    <!--
+     Returns the window name of the given window
+     -->
+    <method name="GetWindowName">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="s" direction="out"/>
+    </method>
+    <!--
+     Returns the window ids of the children of the given window
+     -->
+    <method name="GetWindowChildren">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="au" direction="out"/>
+    </method>
+    <!--
+     Recursively returns all child windows of the given window id
+     -->
+    <method name="GetAllWindows">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="au" direction="out"/>
+    </method>
+    <!--
+     Returns the currently set app ID on the given window
+     -->
+    <method name="GetAppId">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="u" direction="out"/>
+    </method>
+    <!--
+     Sets the app ID on the given window
+     -->
+    <method name="SetAppId">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg name="app_id" type="u" direction="in"/>
+    </method>
+    <!--
+     Returns whether or not the given window has an app ID set
+     -->
+    <method name="HasAppId">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="b" direction="out"/>
+    </method>
+    <!--
+     The X display name of the XWayland display (E.g. ":0", ":1")
+     -->
+    <property name="Name" type="s" access="read"/>
+    <!--
+     Returns true if this instance is the primary Gamescope xwayland instance
+     -->
+    <property name="Primary" type="b" access="read"/>
+    <!--
+     Returns the root window ID of the xwayland instance
+     -->
+    <property name="RootWindowId" type="u" access="read"/>
+    <!--
+     List of windows currently being watched for property changes. The
+     [WindowPropertyChanged] signal will fire whenever one of these windows
+     has a property change.
+     -->
+    <property name="WatchedWindows" type="au" access="read"/>
+  </interface>
+  <interface name="org.freedesktop.DBus.Properties">
+    <method name="Get">
+      <arg name="interface_name" type="s" direction="in"/>
+      <arg name="property_name" type="s" direction="in"/>
+      <arg type="v" direction="out"/>
+    </method>
+    <method name="Set">
+      <arg name="interface_name" type="s" direction="in"/>
+      <arg name="property_name" type="s" direction="in"/>
+      <arg name="value" type="v" direction="in"/>
+    </method>
+    <method name="GetAll">
+      <arg name="interface_name" type="s" direction="in"/>
+      <arg type="a{sv}" direction="out"/>
+    </method>
+    <!--
+     Emits the `org.freedesktop.DBus.Properties.PropertiesChanged` signal.
+     -->
+    <signal name="PropertiesChanged">
+      <arg name="interface_name" type="s"/>
+      <arg name="changed_properties" type="a{sv}"/>
+      <arg name="invalidated_properties" type="as"/>
+    </signal>
+  </interface>
+  <interface name="org.freedesktop.DBus.Introspectable">
+    <method name="Introspect">
+      <arg type="s" direction="out"/>
+    </method>
+  </interface>
+  <interface name="org.freedesktop.DBus.Peer">
+    <method name="Ping">
+    </method>
+    <method name="GetMachineId">
+      <arg type="s" direction="out"/>
+    </method>
+  </interface>
   <interface name="org.shadowblip.Gamescope.XWayland.Primary">
     <!--
      Returns true if the window with the given window ID exists in focusable apps
@@ -137,97 +271,5 @@
      Returns whether or not the overlay window is currently focused
      -->
     <property name="OverlayFocused" type="b" access="read"/>
-  </interface>
-  <interface name="org.shadowblip.Gamescope.XWayland">
-    <!--
-     Returns the window name of the given window
-     -->
-    <method name="GetWindowName">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg type="s" direction="out"/>
-    </method>
-    <!--
-     Returns the window ids of the children of the given window
-     -->
-    <method name="GetWindowChildren">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg type="au" direction="out"/>
-    </method>
-    <!--
-     Recursively returns all child windows of the given window id
-     -->
-    <method name="GetAllWindows">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg type="au" direction="out"/>
-    </method>
-    <!--
-     Returns the currently set app ID on the given window
-     -->
-    <method name="GetAppId">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg type="u" direction="out"/>
-    </method>
-    <!--
-     Sets the app ID on the given window
-     -->
-    <method name="SetAppId">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg name="app_id" type="u" direction="in"/>
-    </method>
-    <!--
-     Returns whether or not the given window has an app ID set
-     -->
-    <method name="HasAppId">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg type="b" direction="out"/>
-    </method>
-    <!--
-     The X display name of the XWayland display (E.g. ":0", ":1")
-     -->
-    <property name="Name" type="s" access="read"/>
-    <!--
-     Returns true if this instance is the primary Gamescope xwayland instance
-     -->
-    <property name="Primary" type="b" access="read"/>
-    <!--
-     Returns the root window ID of the xwayland instance
-     -->
-    <property name="RootWindowId" type="u" access="read"/>
-  </interface>
-  <interface name="org.freedesktop.DBus.Peer">
-    <method name="Ping">
-    </method>
-    <method name="GetMachineId">
-      <arg type="s" direction="out"/>
-    </method>
-  </interface>
-  <interface name="org.freedesktop.DBus.Introspectable">
-    <method name="Introspect">
-      <arg type="s" direction="out"/>
-    </method>
-  </interface>
-  <interface name="org.freedesktop.DBus.Properties">
-    <method name="Get">
-      <arg name="interface_name" type="s" direction="in"/>
-      <arg name="property_name" type="s" direction="in"/>
-      <arg type="v" direction="out"/>
-    </method>
-    <method name="Set">
-      <arg name="interface_name" type="s" direction="in"/>
-      <arg name="property_name" type="s" direction="in"/>
-      <arg name="value" type="v" direction="in"/>
-    </method>
-    <method name="GetAll">
-      <arg name="interface_name" type="s" direction="in"/>
-      <arg type="a{sv}" direction="out"/>
-    </method>
-    <!--
-     Emits the `org.freedesktop.DBus.Properties.PropertiesChanged` signal.
-     -->
-    <signal name="PropertiesChanged">
-      <arg name="interface_name" type="s"/>
-      <arg name="changed_properties" type="a{sv}"/>
-      <arg name="invalidated_properties" type="as"/>
-    </signal>
   </interface>
 </node>

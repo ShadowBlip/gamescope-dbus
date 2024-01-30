@@ -1,17 +1,5 @@
 # Manager DBus Interface API
 
-## org.shadowblip.Gamescope.Manager
-
-### Properties
-
-| Name | Access | Type | Description |
-| --- | :---: | :---: | --- |
-| **Name** | *read* | *s* |  |
-
-### Methods
-
-### Signals
-
 ## org.freedesktop.DBus.Properties
 
 ### Methods
@@ -57,17 +45,15 @@
 | **changed_properties** | \*\* | *a{sv}* |  |
 | **invalidated_properties** | \*\* | *as* |  |
 
-## org.freedesktop.DBus.Introspectable
+## org.shadowblip.Gamescope.Manager
+
+### Properties
+
+| Name | Access | Type | Description |
+| --- | :---: | :---: | --- |
+| **Name** | *read* | *s* |  |
 
 ### Methods
-
-#### Introspect
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| \*\*\*\* | *out* | *s* |  |
 
 ### Signals
 
@@ -78,6 +64,20 @@
 #### Ping
 
 #### GetMachineId
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| \*\*\*\* | *out* | *s* |  |
+
+### Signals
+
+## org.freedesktop.DBus.Introspectable
+
+### Methods
+
+#### Introspect
 
 ##### Arguments
 

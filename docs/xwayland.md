@@ -1,5 +1,192 @@
 # XWayland DBus Interface API
 
+## org.shadowblip.Gamescope.XWayland
+
+### Properties
+
+| Name | Access | Type | Description |
+| --- | :---: | :---: | --- |
+| **Name** | *read* | *s* |  |
+| **Primary** | *read* | *b* |  |
+| **RootWindowId** | *read* | *u* |  |
+| **WatchedWindows** | *read* | *au* |  |
+
+### Methods
+
+#### WatchWindow
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window_id** | *in* | *u* |  |
+
+#### UnwatchWindow
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window_id** | *in* | *u* |  |
+
+#### GetPidsForWindow
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window_id** | *in* | *u* |  |
+| \*\*\*\* | *out* | *au* |  |
+
+#### GetWindowsForPid
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **pid** | *in* | *u* |  |
+| \*\*\*\* | *out* | *au* |  |
+
+#### GetWindowName
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window_id** | *in* | *u* |  |
+| \*\*\*\* | *out* | *s* |  |
+
+#### GetWindowChildren
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window_id** | *in* | *u* |  |
+| \*\*\*\* | *out* | *au* |  |
+
+#### GetAllWindows
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window_id** | *in* | *u* |  |
+| \*\*\*\* | *out* | *au* |  |
+
+#### GetAppId
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window_id** | *in* | *u* |  |
+| \*\*\*\* | *out* | *u* |  |
+
+#### SetAppId
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window_id** | *in* | *u* |  |
+| **app_id** | *in* | *u* |  |
+
+#### HasAppId
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window_id** | *in* | *u* |  |
+| \*\*\*\* | *out* | *b* |  |
+
+### Signals
+
+#### WindowPropertyChanged
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window** | \*\* | *u* |  |
+| **prop** | \*\* | *s* |  |
+
+## org.freedesktop.DBus.Properties
+
+### Methods
+
+#### Get
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **interface_name** | *in* | *s* |  |
+| **property_name** | *in* | *s* |  |
+| \*\*\*\* | *out* | *v* |  |
+
+#### Set
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **interface_name** | *in* | *s* |  |
+| **property_name** | *in* | *s* |  |
+| **value** | *in* | *v* |  |
+
+#### GetAll
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **interface_name** | *in* | *s* |  |
+| \*\*\*\* | *out* | *a{sv}* |  |
+
+### Signals
+
+#### PropertiesChanged
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **interface_name** | \*\* | *s* |  |
+| **changed_properties** | \*\* | *a{sv}* |  |
+| **invalidated_properties** | \*\* | *as* |  |
+
+## org.freedesktop.DBus.Introspectable
+
+### Methods
+
+#### Introspect
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| \*\*\*\* | *out* | *s* |  |
+
+### Signals
+
+## org.freedesktop.DBus.Peer
+
+### Methods
+
+#### Ping
+
+#### GetMachineId
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| \*\*\*\* | *out* | *s* |  |
+
+### Signals
+
 ## org.shadowblip.Gamescope.XWayland.Primary
 
 ### Properties
@@ -105,146 +292,3 @@
 ### Signals
 
 #### BaselayerWindowUpdated
-
-## org.shadowblip.Gamescope.XWayland
-
-### Properties
-
-| Name | Access | Type | Description |
-| --- | :---: | :---: | --- |
-| **Name** | *read* | *s* |  |
-| **Primary** | *read* | *b* |  |
-| **RootWindowId** | *read* | *u* |  |
-
-### Methods
-
-#### GetWindowName
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **window_id** | *in* | *u* |  |
-| \*\*\*\* | *out* | *s* |  |
-
-#### GetWindowChildren
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **window_id** | *in* | *u* |  |
-| \*\*\*\* | *out* | *au* |  |
-
-#### GetAllWindows
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **window_id** | *in* | *u* |  |
-| \*\*\*\* | *out* | *au* |  |
-
-#### GetAppId
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **window_id** | *in* | *u* |  |
-| \*\*\*\* | *out* | *u* |  |
-
-#### SetAppId
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **window_id** | *in* | *u* |  |
-| **app_id** | *in* | *u* |  |
-
-#### HasAppId
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **window_id** | *in* | *u* |  |
-| \*\*\*\* | *out* | *b* |  |
-
-### Signals
-
-## org.freedesktop.DBus.Peer
-
-### Methods
-
-#### Ping
-
-#### GetMachineId
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| \*\*\*\* | *out* | *s* |  |
-
-### Signals
-
-## org.freedesktop.DBus.Introspectable
-
-### Methods
-
-#### Introspect
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| \*\*\*\* | *out* | *s* |  |
-
-### Signals
-
-## org.freedesktop.DBus.Properties
-
-### Methods
-
-#### Get
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **interface_name** | *in* | *s* |  |
-| **property_name** | *in* | *s* |  |
-| \*\*\*\* | *out* | *v* |  |
-
-#### Set
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **interface_name** | *in* | *s* |  |
-| **property_name** | *in* | *s* |  |
-| **value** | *in* | *v* |  |
-
-#### GetAll
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **interface_name** | *in* | *s* |  |
-| \*\*\*\* | *out* | *a{sv}* |  |
-
-### Signals
-
-#### PropertiesChanged
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **interface_name** | \*\* | *s* |  |
-| **changed_properties** | \*\* | *a{sv}* |  |
-| **invalidated_properties** | \*\* | *as* |  |

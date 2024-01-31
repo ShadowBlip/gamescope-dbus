@@ -22,4 +22,4 @@ zbus = { version = "3.14.1", default-features = false, features = ["tokio"] }
 zbus_macros = "3.14.1"
 inotify = "0.10.2"
 gamescope-wayland-client = { git = "https://github.com/ShadowBlip/gamescope-wayland-client.git", version = "0.1.0" }
-gamescope-x11-client = { git = "https://github.com/ShadowBlip/gamescope-x11-client.git", rev = "5e290a5ed6db1c46f49f86a1b33773572c46da0b" }
+gamescope-x11-client = { git = "https://github.com/ShadowBlip/gamescope-x11-client.git", rev = "4b293ed350636c7ef2e96dd5125db7b1ca1d8187" }

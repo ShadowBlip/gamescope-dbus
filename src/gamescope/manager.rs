@@ -198,7 +198,11 @@ impl Manager {
             // also attach the dbus interface with extra methods
             if instance.primary().await? {
                 log::debug!("Discovered XWayland {} is primary", name);
-                let primary = xwayland::DBusInterfacePrimary::new(name.clone())?;
+                let primary = xwayland::DBusInterfacePrimary::new(
+                    name.clone(),
+                    path.clone(),
+                    self.dbus.clone(),
+                )?;
                 let changes_rx = primary.listen_for_property_changes()?;
                 self.dbus.object_server().at(path.clone(), primary).await?;
 

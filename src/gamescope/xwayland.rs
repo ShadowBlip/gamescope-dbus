@@ -47,19 +47,26 @@ impl DBusInterface {
 
     /// Tries to ensure that the backing X11 connection is valid.
     async fn ensure_connected(&self) {
+        if self.xwayland.is_connected() {
+            return;
+        }
+        log::warn!("Lost connection to XWayland server. Reconnecting.");
         let iface_ref = self.get_interface().await;
         if iface_ref.is_err() {
             return;
         }
-        let interface_ref = &iface_ref.unwrap();
-        let mut iface = interface_ref.get_mut().await;
-        if iface.xwayland.is_connected() {
-            return;
-        }
-        log::warn!("Lost connection to XWayland server. Reconnecting.");
-        if let Err(e) = iface.xwayland.connect() {
-            log::warn!("Failed to reconnect to XWayland server: {:?}", e)
-        }
+        tokio::task::spawn(async move {
+            log::info!("Trying to reconnect to XWayland server.");
+            let interface_ref = &iface_ref.unwrap();
+            let mut iface = interface_ref.get_mut().await;
+            if iface.xwayland.is_connected() {
+                return;
+            }
+            if let Err(e) = iface.xwayland.connect() {
+                log::warn!("Failed to reconnect to XWayland server: {:?}", e)
+            }
+            log::info!("Successfully reconnected to XWayland server.");
+        });
     }
 }
 
@@ -314,19 +321,26 @@ impl DBusInterfacePrimary {
 
     /// Tries to ensure that the backing X11 connection is valid.
     async fn ensure_connected(&self) {
+        if self.xwayland.is_connected() {
+            return;
+        }
+        log::warn!("Lost connection to XWayland server. Reconnecting.");
         let iface_ref = self.get_interface().await;
         if iface_ref.is_err() {
             return;
         }
-        let interface_ref = &iface_ref.unwrap();
-        let mut iface = interface_ref.get_mut().await;
-        if iface.xwayland.is_connected() {
-            return;
-        }
-        log::warn!("Lost connection to XWayland server. Reconnecting.");
-        if let Err(e) = iface.xwayland.connect() {
-            log::warn!("Failed to reconnect to XWayland server: {:?}", e)
-        }
+        tokio::task::spawn(async move {
+            log::info!("Trying to reconnect to XWayland server.");
+            let interface_ref = &iface_ref.unwrap();
+            let mut iface = interface_ref.get_mut().await;
+            if iface.xwayland.is_connected() {
+                return;
+            }
+            if let Err(e) = iface.xwayland.connect() {
+                log::warn!("Failed to reconnect to XWayland server: {:?}", e)
+            }
+            log::info!("Successfully reconnected to XWayland server.");
+        });
     }
 }
 

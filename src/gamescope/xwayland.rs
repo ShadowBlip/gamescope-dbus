@@ -7,7 +7,7 @@ use tokio::task::AbortHandle;
 use zbus::{fdo, Connection, SignalContext};
 use zbus_macros::dbus_interface;
 
-/// DBus interface imeplementation for Gamescope XWayland instance
+/// DBus interface imeplementation for Gamescope XWayland instance.
 pub struct DBusInterface {
     path: String,
     xwayland: XWayland,

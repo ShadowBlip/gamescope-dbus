@@ -198,19 +198,30 @@ impl Manager {
             // also attach the dbus interface with extra methods
             if instance.primary().await? {
                 log::debug!("Discovered XWayland {} is primary", name);
+
+                // Property changes events
                 let primary = xwayland::DBusInterfacePrimary::new(
                     name.clone(),
                     path.clone(),
                     self.dbus.clone(),
                 )?;
-                let changes_rx = primary.listen_for_property_changes()?;
+                let property_changes_rx = primary.listen_for_property_changes()?;
+                let window_created_rx = primary.listen_for_window_created()?;
                 self.dbus.object_server().at(path.clone(), primary).await?;
 
                 // Propagate gamescope changes to DBus signals
                 xwayland::dispatch_primary_property_changes(
                     self.dbus.clone(),
                     path.clone(),
-                    changes_rx,
+                    property_changes_rx,
+                )
+                .await?;
+
+                // Propagate gamescope changes to DBus signals
+                xwayland::dispatch_primary_window_created(
+                    self.dbus.clone(),
+                    path.clone(),
+                    window_created_rx,
                 )
                 .await?;
             }

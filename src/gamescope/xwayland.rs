@@ -310,6 +310,14 @@ impl DBusInterfacePrimary {
         Ok(rx)
     }
 
+    /// Starts a new thread listening for window created events. Returns
+    /// a receiver channel where changes will be sent to. This is usually used
+    /// to process DBus property changes outside of the dispatched handler
+    pub fn listen_for_window_created(&self) -> Result<Receiver<u32>, Box<dyn Error>> {
+        let (_, rx) = self.xwayland.listen_for_window_created()?;
+        Ok(rx)
+    }
+
     /// Returns a reference to the dbus interface
     async fn get_interface(&self) -> Result<zbus::InterfaceRef<DBusInterfacePrimary>, zbus::Error> {
         self.dbus
@@ -535,6 +543,10 @@ impl DBusInterfacePrimary {
     #[dbus_interface(signal)]
     async fn baselayer_window_updated(ctxt: &SignalContext<'_>) -> zbus::Result<()>;
 
+    /// Fires when a new window is created
+    #[dbus_interface(signal)]
+    async fn window_created(ctxt: &SignalContext<'_>, window_id: u32) -> zbus::Result<()>;
+
     /// Sets the given window as the main launcher app. This will set an X window
     /// property called STEAM_GAME to 769 (Steam), which will make Gamescope
     /// treat the window as the main overlay.
@@ -646,7 +658,7 @@ pub async fn dispatch_primary_property_changes(
         // Wait for events from the channel and dispatch them to the DBus interface
         while let Ok(event) = rx.recv() {
             log::debug!("Got property change event: {:?}", event);
-            dispatch_primary_to_dbus(conn.clone(), path.clone(), event);
+            dispatch_property_change_to_dbus(conn.clone(), path.clone(), event);
         }
         log::warn!("Stopped listening for property changes");
     });
@@ -654,8 +666,30 @@ pub async fn dispatch_primary_property_changes(
     Ok(())
 }
 
+/// Listen for windows created and emit the appropriate DBus signals. This is
+/// split into two methods to bridge the gap between the sync world and the async
+/// world.
+pub async fn dispatch_primary_window_created(
+    conn: zbus::Connection,
+    path: String,
+    rx: Receiver<u32>,
+) -> Result<(), Box<dyn Error>> {
+    tokio::task::spawn_blocking(move || {
+        log::debug!("Started listening for windows created");
+
+        // Wait for events from the channel and dispatch them to the DBus interface
+        while let Ok(event) = rx.recv() {
+            log::debug!("Got window created event: {:?}", event);
+            dispatch_window_created_to_dbus(conn.clone(), path.clone(), event);
+        }
+        log::warn!("Stopped listening for windows created");
+    });
+
+    Ok(())
+}
+
 /// Dispatch the given event to DBus using async
-fn dispatch_primary_to_dbus(conn: zbus::Connection, path: String, event: String) {
+fn dispatch_property_change_to_dbus(conn: zbus::Connection, path: String, event: String) {
     tokio::task::spawn(async move {
         // Get the object instance at the given path so we can send DBus signal
         // updates
@@ -665,8 +699,8 @@ fn dispatch_primary_to_dbus(conn: zbus::Connection, path: String, event: String)
             .await
             .expect("Unable to get reference to DBus interface");
 
-        log::debug!("Got property change event: {:?}", event);
         let iface = iface_ref.get_mut().await;
+        log::debug!("Got property change event: {:?}", event);
 
         // Match on the type of property that was changed to send the appropriate
         // DBus signal.
@@ -702,5 +736,26 @@ fn dispatch_primary_to_dbus(conn: zbus::Connection, path: String, event: String)
                 .await
                 .unwrap_or_else(|error| log::warn!("Unable to signal value change: {:?}", error));
         }
+    });
+}
+
+/// Dispatch the given event to DBus using async
+fn dispatch_window_created_to_dbus(conn: zbus::Connection, path: String, value: u32) {
+    tokio::task::spawn(async move {
+        // Get the object instance at the given path so we can send DBus signal
+        // updates
+        let iface_ref = conn
+            .object_server()
+            .interface::<_, DBusInterfacePrimary>(path)
+            .await
+            .expect("Unable to get reference to DBus interface");
+
+        log::debug!("Got window created for window_id: {:?}", value);
+
+        DBusInterfacePrimary::window_created(iface_ref.signal_context(), value)
+            .await
+            .unwrap_or_else(|error| {
+                log::warn!("Unable to signal window created event: {:?}", error);
+            });
     });
 }

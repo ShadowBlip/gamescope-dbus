@@ -1,5 +1,47 @@
 # Manager DBus Interface API
 
+## org.freedesktop.DBus.Introspectable
+
+### Methods
+
+#### Introspect
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| \*\*\*\* | *out* | *s* |  |
+
+### Signals
+
+## org.shadowblip.Gamescope.Manager
+
+### Properties
+
+| Name | Access | Type | Description |
+| --- | :---: | :---: | --- |
+| **Name** | *read* | *s* |  |
+
+### Methods
+
+### Signals
+
+## org.freedesktop.DBus.Peer
+
+### Methods
+
+#### Ping
+
+#### GetMachineId
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| \*\*\*\* | *out* | *s* |  |
+
+### Signals
+
 ## org.freedesktop.DBus.Properties
 
 ### Methods
@@ -44,45 +86,3 @@
 | **interface_name** | \*\* | *s* |  |
 | **changed_properties** | \*\* | *a{sv}* |  |
 | **invalidated_properties** | \*\* | *as* |  |
-
-## org.shadowblip.Gamescope.Manager
-
-### Properties
-
-| Name | Access | Type | Description |
-| --- | :---: | :---: | --- |
-| **Name** | *read* | *s* |  |
-
-### Methods
-
-### Signals
-
-## org.freedesktop.DBus.Peer
-
-### Methods
-
-#### Ping
-
-#### GetMachineId
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| \*\*\*\* | *out* | *s* |  |
-
-### Signals
-
-## org.freedesktop.DBus.Introspectable
-
-### Methods
-
-#### Introspect
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| \*\*\*\* | *out* | *s* |  |
-
-### Signals

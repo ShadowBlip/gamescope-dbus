@@ -266,6 +266,15 @@ impl DBusInterface {
         Ok(())
     }
 
+    /// Removes the app ID on the given window
+    async fn remove_app_id(&self, window_id: u32) -> fdo::Result<()> {
+        self.ensure_connected().await;
+        self.xwayland
+            .remove_xprop(window_id, GamescopeAtom::SteamGame)
+            .map_err(|err| fdo::Error::Failed(err.to_string()))?;
+        Ok(())
+    }
+
     /// Returns whether or not the given window has an app ID set
     async fn has_app_id(&self, window_id: u32) -> fdo::Result<bool> {
         self.ensure_connected().await;

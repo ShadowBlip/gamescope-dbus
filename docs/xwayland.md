@@ -92,6 +92,14 @@
 | **window_id** | *in* | *u* |  |
 | **app_id** | *in* | *u* |  |
 
+#### RemoveAppId
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window_id** | *in* | *u* |  |
+
 #### HasAppId
 
 ##### Arguments
@@ -112,56 +120,13 @@
 | **window** | \*\* | *u* |  |
 | **prop** | \*\* | *s* |  |
 
-## org.freedesktop.DBus.Properties
+## org.freedesktop.DBus.Peer
 
 ### Methods
 
-#### Get
+#### Ping
 
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **interface_name** | *in* | *s* |  |
-| **property_name** | *in* | *s* |  |
-| \*\*\*\* | *out* | *v* |  |
-
-#### Set
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **interface_name** | *in* | *s* |  |
-| **property_name** | *in* | *s* |  |
-| **value** | *in* | *v* |  |
-
-#### GetAll
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **interface_name** | *in* | *s* |  |
-| \*\*\*\* | *out* | *a{sv}* |  |
-
-### Signals
-
-#### PropertiesChanged
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-| **interface_name** | \*\* | *s* |  |
-| **changed_properties** | \*\* | *a{sv}* |  |
-| **invalidated_properties** | \*\* | *as* |  |
-
-## org.freedesktop.DBus.Introspectable
-
-### Methods
-
-#### Introspect
+#### GetMachineId
 
 ##### Arguments
 
@@ -171,13 +136,11 @@
 
 ### Signals
 
-## org.freedesktop.DBus.Peer
+## org.freedesktop.DBus.Introspectable
 
 ### Methods
 
-#### Ping
-
-#### GetMachineId
+#### Introspect
 
 ##### Arguments
 
@@ -292,3 +255,56 @@
 ### Signals
 
 #### BaselayerWindowUpdated
+
+#### WindowCreated
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window_id** | \*\* | *u* |  |
+
+## org.freedesktop.DBus.Properties
+
+### Methods
+
+#### Get
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **interface_name** | *in* | *s* |  |
+| **property_name** | *in* | *s* |  |
+| \*\*\*\* | *out* | *v* |  |
+
+#### Set
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **interface_name** | *in* | *s* |  |
+| **property_name** | *in* | *s* |  |
+| **value** | *in* | *v* |  |
+
+#### GetAll
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **interface_name** | *in* | *s* |  |
+| \*\*\*\* | *out* | *a{sv}* |  |
+
+### Signals
+
+#### PropertiesChanged
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **interface_name** | \*\* | *s* |  |
+| **changed_properties** | \*\* | *a{sv}* |  |
+| **invalidated_properties** | \*\* | *as* |  |

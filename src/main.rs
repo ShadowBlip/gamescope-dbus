@@ -9,7 +9,8 @@ mod watcher;
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     SimpleLogger::new().init().unwrap();
-    log::info!("Starting Gamescope DBus");
+    const VERSION: &str = env!("CARGO_PKG_VERSION");
+    log::info!("Starting Gamescope DBus v{}", VERSION);
 
     // Configure the DBus connection
     let connection = Connection::session().await?;

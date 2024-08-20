@@ -144,7 +144,7 @@ impl DBusInterface {
                     .await
                     .expect("Unable to get reference to DBus interface");
 
-                log::debug!("Got property change event: {:?}", event);
+                log::trace!("Got property change event: {:?}", event);
 
                 // Emit the property changed signal for this window
                 DBusInterface::window_property_changed(iface_ref.signal_context(), id, event)
@@ -166,7 +166,7 @@ impl DBusInterface {
 
             // Wait for events from the channel and dispatch them to the DBus interface
             while let Ok(event) = rx.recv() {
-                log::debug!("Got property change event: {:?}", event);
+                log::trace!("Got property change event: {:?}", event);
                 dispatch_to_dbus(conn.clone(), path.clone(), event, window_id);
             }
             log::warn!("Stopped listening for property changes");
@@ -666,7 +666,7 @@ pub async fn dispatch_primary_property_changes(
 
         // Wait for events from the channel and dispatch them to the DBus interface
         while let Ok(event) = rx.recv() {
-            log::debug!("Got property change event: {:?}", event);
+            log::trace!("Got property change event: {:?}", event);
             dispatch_property_change_to_dbus(conn.clone(), path.clone(), event);
         }
         log::warn!("Stopped listening for property changes");
@@ -709,7 +709,7 @@ fn dispatch_property_change_to_dbus(conn: zbus::Connection, path: String, event:
             .expect("Unable to get reference to DBus interface");
 
         let iface = iface_ref.get_mut().await;
-        log::debug!("Got property change event: {:?}", event);
+        log::trace!("Got property change event: {:?}", event);
 
         // Match on the type of property that was changed to send the appropriate
         // DBus signal.

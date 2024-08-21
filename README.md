@@ -1,5 +1,5 @@
+<br>
 <h1 align="center">
-  <br>
   Gamescope DBus
 </h1>
 
@@ -44,10 +44,9 @@ XML specifications for all interfaces can be found in [bindings/dbus-xml](./bind
 
 Individual interface documentation can be found here:
 
-* [org.shadowblip.Gamescope.Manager](./docs/manager.md)
-* [org.shadowblip.Gamescope.XWayland](./docs/xwayland.md)
-* [org.shadowblip.Gamescope.Wayland](./docs/wayland.md)
-
+- [org.shadowblip.Gamescope.Manager](./docs/manager.md)
+- [org.shadowblip.Gamescope.XWayland](./docs/xwayland.md)
+- [org.shadowblip.Gamescope.Wayland](./docs/wayland.md)
 
 ## Usage
 
@@ -61,7 +60,6 @@ You can also interface with DBus using the `busctl` command:
 busctl --user tree org.shadowblip.Gamescope
 ```
 
-
 ```bash
 └─ /org
   └─ /org/shadowblip
@@ -71,7 +69,6 @@ busctl --user tree org.shadowblip.Gamescope
       ├─ /org/shadowblip/Gamescope/XWayland0
       └─ /org/shadowblip/Gamescope/XWayland1
 ```
-
 
 ```bash
 busctl --user introspect org.shadowblip.Gamescope /org/shadowblip/Gamescope/XWayland0

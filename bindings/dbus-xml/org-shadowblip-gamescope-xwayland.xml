@@ -1,6 +1,207 @@
 <?xml version="1.0"?>
 <!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
 <node>
+  <interface name="org.shadowblip.Gamescope.XWayland.Primary">
+    <!--
+     Returns true if the window with the given window ID exists in focusable apps
+     -->
+    <method name="IsFocusableApp">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="b" direction="out"/>
+    </method>
+    <!--
+     Fires when the baselayer app id has been updated
+     -->
+    <signal name="BaselayerAppIdUpdated">
+    </signal>
+    <!--
+     Fires when the baselayer window has been updated
+     -->
+    <signal name="BaselayerWindowUpdated">
+    </signal>
+    <!--
+     Fires when a new window is created
+     -->
+    <signal name="WindowCreated">
+      <arg name="window_id" type="u"/>
+    </signal>
+    <!--
+     Sets the given window as the main launcher app. This will set an X window
+     property called STEAM_GAME to 769 (Steam), which will make Gamescope
+     treat the window as the main overlay.
+     -->
+    <method name="SetMainApp">
+      <arg name="window_id" type="u" direction="in"/>
+    </method>
+    <!--
+     Set the given window as the primary overlay input focus. This should be set to
+     "1" whenever the overlay wants to intercept input from a game.
+     -->
+    <method name="SetInputFocus">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg name="value" type="u" direction="in"/>
+    </method>
+    <!--
+     Get the overlay status for the given window
+     -->
+    <method name="GetOverlay">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="u" direction="out"/>
+    </method>
+    <!--
+     Set the given window as the main overlay window
+     -->
+    <method name="SetOverlay">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg name="value" type="u" direction="in"/>
+    </method>
+    <!--
+     Set the given window as a notification. This should be set to "1" when some
+     UI wants to be shown but not intercept input.
+     -->
+    <method name="SetNotification">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg name="value" type="u" direction="in"/>
+    </method>
+    <!--
+     Set the given window as an external overlay window
+     -->
+    <method name="SetExternalOverlay">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg name="value" type="u" direction="in"/>
+    </method>
+    <!--
+     Returns the currently set manual app focus
+     -->
+    <method name="GetBaselayerAppId">
+      <arg type="u" direction="out"/>
+    </method>
+    <!--
+     Focuses the app with the given app id
+     -->
+    <method name="SetBaselayerAppId">
+      <arg name="app_id" type="u" direction="in"/>
+    </method>
+    <!--
+     Removes the baselayer property to un-focus an app
+     -->
+    <method name="RemoveBaselayerAppId">
+    </method>
+    <!--
+     Returns the currently set manual focus
+     -->
+    <method name="GetBaselayerWindow">
+      <arg type="u" direction="out"/>
+    </method>
+    <!--
+     Focuses the given window
+     -->
+    <method name="SetBaselayerWindow">
+      <arg name="window_id" type="u" direction="in"/>
+    </method>
+    <!--
+     Removes the baselayer property to un-focus windows
+     -->
+    <method name="RemoveBaselayerWindow">
+    </method>
+    <!--
+     Request a screenshot from Gamescope
+     -->
+    <method name="RequestScreenshot">
+    </method>
+    <!--
+     Whether or not Gamescope should be allowed to screen tear
+     -->
+    <!--
+     Sets whether or not Gamescope should be allowed to screen tear
+     -->
+    <property name="AllowTearing" type="b" access="readwrite"/>
+    <!--
+     The Gamescope blur mode (0 - off, 1 - cond, 2 - always)
+     -->
+    <!--
+     Sets the Gamescope blur mode
+     -->
+    <property name="BlurMode" type="u" access="readwrite"/>
+    <!--
+     The blur radius size
+     -->
+    <!--
+     Sets the blur radius size
+     -->
+    <property name="BlurRadius" type="u" access="readwrite"/>
+    <!--
+     Return a list of focusable apps
+     -->
+    <property name="FocusableApps" type="au" access="read"/>
+    <!--
+     Returns a list of focusable window names
+     -->
+    <property name="FocusableWindowNames" type="as" access="read"/>
+    <!--
+     Returns a list of focusable window ids
+     -->
+    <property name="FocusableWindows" type="au" access="read"/>
+    <!--
+     Return the currently focused app id.
+     -->
+    <property name="FocusedApp" type="u" access="read"/>
+    <!--
+     Return the currently focused gfx app id.
+     -->
+    <property name="FocusedAppGfx" type="u" access="read"/>
+    <!--
+     Return the currently focused window id.
+     -->
+    <property name="FocusedWindow" type="u" access="read"/>
+    <!--
+     The current Gamescope FPS limit
+     -->
+    <!--
+     Sets the current Gamescope FPS limit
+     -->
+    <property name="FpsLimit" type="u" access="readwrite"/>
+    <!--
+     Returns whether or not the overlay window is currently focused
+     -->
+    <property name="OverlayFocused" type="b" access="read"/>
+  </interface>
+  <interface name="org.freedesktop.DBus.Introspectable">
+    <method name="Introspect">
+      <arg type="s" direction="out"/>
+    </method>
+  </interface>
+  <interface name="org.freedesktop.DBus.Properties">
+    <method name="Get">
+      <arg name="interface_name" type="s" direction="in"/>
+      <arg name="property_name" type="s" direction="in"/>
+      <arg type="v" direction="out"/>
+    </method>
+    <method name="Set">
+      <arg name="interface_name" type="s" direction="in"/>
+      <arg name="property_name" type="s" direction="in"/>
+      <arg name="value" type="v" direction="in"/>
+    </method>
+    <method name="GetAll">
+      <arg name="interface_name" type="s" direction="in"/>
+      <arg type="a{sv}" direction="out"/>
+    </method>
+    <!--
+     Emits the `org.freedesktop.DBus.Properties.PropertiesChanged` signal.
+     -->
+    <signal name="PropertiesChanged">
+      <arg name="interface_name" type="s"/>
+      <arg name="changed_properties" type="a{sv}"/>
+      <arg name="invalidated_properties" type="as"/>
+    </signal>
+  </interface>
+  <interface name="org.freedesktop.DBus.Peer">
+    <method name="Ping">
+    </method>
+    <method name="GetMachineId">
+      <arg type="s" direction="out"/>
+    </method>
+  </interface>
   <interface name="org.shadowblip.Gamescope.XWayland">
     <!--
      Emitted when a window property changes on a watched window.
@@ -104,184 +305,5 @@
      has a property change.
      -->
     <property name="WatchedWindows" type="au" access="read"/>
-  </interface>
-  <interface name="org.freedesktop.DBus.Peer">
-    <method name="Ping">
-    </method>
-    <method name="GetMachineId">
-      <arg type="s" direction="out"/>
-    </method>
-  </interface>
-  <interface name="org.freedesktop.DBus.Introspectable">
-    <method name="Introspect">
-      <arg type="s" direction="out"/>
-    </method>
-  </interface>
-  <interface name="org.shadowblip.Gamescope.XWayland.Primary">
-    <!--
-     Returns true if the window with the given window ID exists in focusable apps
-     -->
-    <method name="IsFocusableApp">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg type="b" direction="out"/>
-    </method>
-    <!--
-     Fires when the baselayer window has been updated
-     -->
-    <signal name="BaselayerWindowUpdated">
-    </signal>
-    <!--
-     Fires when a new window is created
-     -->
-    <signal name="WindowCreated">
-      <arg name="window_id" type="u"/>
-    </signal>
-    <!--
-     Sets the given window as the main launcher app. This will set an X window
-     property called STEAM_GAME to 769 (Steam), which will make Gamescope
-     treat the window as the main overlay.
-     -->
-    <method name="SetMainApp">
-      <arg name="window_id" type="u" direction="in"/>
-    </method>
-    <!--
-     Set the given window as the primary overlay input focus. This should be set to
-     "1" whenever the overlay wants to intercept input from a game.
-     -->
-    <method name="SetInputFocus">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg name="value" type="u" direction="in"/>
-    </method>
-    <!--
-     Get the overlay status for the given window
-     -->
-    <method name="GetOverlay">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg type="u" direction="out"/>
-    </method>
-    <!--
-     Set the given window as the main overlay window
-     -->
-    <method name="SetOverlay">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg name="value" type="u" direction="in"/>
-    </method>
-    <!--
-     Set the given window as a notification. This should be set to "1" when some
-     UI wants to be shown but not intercept input.
-     -->
-    <method name="SetNotification">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg name="value" type="u" direction="in"/>
-    </method>
-    <!--
-     Set the given window as an external overlay window
-     -->
-    <method name="SetExternalOverlay">
-      <arg name="window_id" type="u" direction="in"/>
-      <arg name="value" type="u" direction="in"/>
-    </method>
-    <!--
-     Returns the currently set manual focus
-     -->
-    <method name="GetBaselayerWindow">
-      <arg type="u" direction="out"/>
-    </method>
-    <!--
-     Focuses the given window
-     -->
-    <method name="SetBaselayerWindow">
-      <arg name="window_id" type="u" direction="in"/>
-    </method>
-    <!--
-     Removes the baselayer property to un-focus windows
-     -->
-    <method name="RemoveBaselayerWindow">
-    </method>
-    <!--
-     Request a screenshot from Gamescope
-     -->
-    <method name="RequestScreenshot">
-    </method>
-    <!--
-     Whether or not Gamescope should be allowed to screen tear
-     -->
-    <!--
-     Sets whether or not Gamescope should be allowed to screen tear
-     -->
-    <property name="AllowTearing" type="b" access="readwrite"/>
-    <!--
-     The Gamescope blur mode (0 - off, 1 - cond, 2 - always)
-     -->
-    <!--
-     Sets the Gamescope blur mode
-     -->
-    <property name="BlurMode" type="u" access="readwrite"/>
-    <!--
-     The blur radius size
-     -->
-    <!--
-     Sets the blur radius size
-     -->
-    <property name="BlurRadius" type="u" access="readwrite"/>
-    <!--
-     Return a list of focusable apps
-     -->
-    <property name="FocusableApps" type="au" access="read"/>
-    <!--
-     Returns a list of focusable window names
-     -->
-    <property name="FocusableWindowNames" type="as" access="read"/>
-    <!--
-     Returns a list of focusable window ids
-     -->
-    <property name="FocusableWindows" type="au" access="read"/>
-    <!--
-     Return the currently focused app id.
-     -->
-    <property name="FocusedApp" type="u" access="read"/>
-    <!--
-     Return the currently focused gfx app id.
-     -->
-    <property name="FocusedAppGfx" type="u" access="read"/>
-    <!--
-     Return the currently focused window id.
-     -->
-    <property name="FocusedWindow" type="u" access="read"/>
-    <!--
-     The current Gamescope FPS limit
-     -->
-    <!--
-     Sets the current Gamescope FPS limit
-     -->
-    <property name="FpsLimit" type="u" access="readwrite"/>
-    <!--
-     Returns whether or not the overlay window is currently focused
-     -->
-    <property name="OverlayFocused" type="b" access="read"/>
-  </interface>
-  <interface name="org.freedesktop.DBus.Properties">
-    <method name="Get">
-      <arg name="interface_name" type="s" direction="in"/>
-      <arg name="property_name" type="s" direction="in"/>
-      <arg type="v" direction="out"/>
-    </method>
-    <method name="Set">
-      <arg name="interface_name" type="s" direction="in"/>
-      <arg name="property_name" type="s" direction="in"/>
-      <arg name="value" type="v" direction="in"/>
-    </method>
-    <method name="GetAll">
-      <arg name="interface_name" type="s" direction="in"/>
-      <arg type="a{sv}" direction="out"/>
-    </method>
-    <!--
-     Emits the `org.freedesktop.DBus.Properties.PropertiesChanged` signal.
-     -->
-    <signal name="PropertiesChanged">
-      <arg name="interface_name" type="s"/>
-      <arg name="changed_properties" type="a{sv}"/>
-      <arg name="invalidated_properties" type="as"/>
-    </signal>
   </interface>
 </node>

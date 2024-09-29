@@ -548,6 +548,10 @@ impl DBusInterfacePrimary {
         Ok(value)
     }
 
+    /// Fires when the baselayer app id has been updated
+    #[dbus_interface(signal)]
+    async fn baselayer_app_id_updated(ctxt: &SignalContext<'_>) -> zbus::Result<()>;
+
     /// Fires when the baselayer window has been updated
     #[dbus_interface(signal)]
     async fn baselayer_window_updated(ctxt: &SignalContext<'_>) -> zbus::Result<()>;
@@ -611,6 +615,34 @@ impl DBusInterfacePrimary {
         self.ensure_connected().await;
         self.xwayland
             .set_external_overlay(window_id, value)
+            .map_err(|err| fdo::Error::Failed(err.to_string()))?;
+        Ok(())
+    }
+
+    /// Returns the currently set manual app focus
+    async fn get_baselayer_app_id(&self) -> fdo::Result<u32> {
+        self.ensure_connected().await;
+        let value = self
+            .xwayland
+            .get_baselayer_app_id()
+            .map_err(|err| fdo::Error::Failed(err.to_string()))?;
+        Ok(value.unwrap_or_default())
+    }
+
+    /// Focuses the app with the given app id
+    async fn set_baselayer_app_id(&self, app_id: u32) -> fdo::Result<()> {
+        self.ensure_connected().await;
+        self.xwayland
+            .set_baselayer_app_id(app_id)
+            .map_err(|err| fdo::Error::Failed(err.to_string()))?;
+        Ok(())
+    }
+
+    /// Removes the baselayer property to un-focus an app
+    async fn remove_baselayer_app_id(&self) -> fdo::Result<()> {
+        self.ensure_connected().await;
+        self.xwayland
+            .remove_baselayer_app_id()
             .map_err(|err| fdo::Error::Failed(err.to_string()))?;
         Ok(())
     }
@@ -742,6 +774,10 @@ fn dispatch_property_change_to_dbus(conn: zbus::Connection, path: String, event:
                 .unwrap_or_else(|error| log::warn!("Unable to signal value change: {:?}", error));
         } else if event == GamescopeAtom::BaselayerWindow.to_string() {
             DBusInterfacePrimary::baselayer_window_updated(iface_ref.signal_context())
+                .await
+                .unwrap_or_else(|error| log::warn!("Unable to signal value change: {:?}", error));
+        } else if event == GamescopeAtom::BaselayerAppId.to_string() {
+            DBusInterfacePrimary::baselayer_app_id_updated(iface_ref.signal_context())
                 .await
                 .unwrap_or_else(|error| log::warn!("Unable to signal value change: {:?}", error));
         }

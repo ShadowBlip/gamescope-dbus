@@ -8,7 +8,7 @@ CACHE_DIR := .cache
 
 # Docker image variables
 IMAGE_NAME ?= rust
-IMAGE_TAG ?= 1.75
+IMAGE_TAG ?= 1.81
 
 ##@ General
 

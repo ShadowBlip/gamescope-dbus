@@ -502,7 +502,7 @@ dependencies = [
 
 [[package]]
 name = "gamescope-dbus"
-version = "1.4.1"
+version = "1.4.2"
 dependencies = [
  "gamescope-wayland-client",
  "gamescope-x11-client",

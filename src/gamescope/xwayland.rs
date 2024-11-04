@@ -1,11 +1,19 @@
 use gamescope_x11_client::{
     atoms::GamescopeAtom,
-    xwayland::{BlurMode, Primary, XWayland},
+    xwayland::{BlurMode, Primary, WindowLifecycleEvent, XWayland},
 };
 use std::{collections::HashMap, error::Error, sync::mpsc::Receiver};
 use tokio::task::AbortHandle;
-use zbus::{fdo, Connection, SignalContext};
+use zbus::{fdo, zvariant::Type, Connection, SignalContext};
 use zbus_macros::dbus_interface;
+
+#[derive(Type, serde::Serialize)]
+pub struct WindowGeometry {
+    pub width: u16,
+    pub height: u16,
+    pub x: i16,
+    pub y: i16,
+}
 
 /// DBus interface imeplementation for Gamescope XWayland instance.
 pub struct DBusInterface {
@@ -67,6 +75,16 @@ impl DBusInterface {
             }
             log::info!("Successfully reconnected to XWayland server.");
         });
+    }
+
+    /// Starts a new thread listening for window lifecycle events. Returns
+    /// a receiver channel where changes will be sent to. This is usually used
+    /// to process DBus property changes outside of the dispatched handler
+    pub fn listen_for_window_lifecycle(
+        &self,
+    ) -> Result<Receiver<(WindowLifecycleEvent, u32)>, Box<dyn Error>> {
+        let (_, rx) = self.xwayland.listen_for_window_lifecycle()?;
+        Ok(rx)
     }
 }
 
@@ -138,11 +156,14 @@ impl DBusInterface {
             tokio::task::spawn(async move {
                 // Get the object instance at the given path so we can send DBus signal
                 // updates
-                let iface_ref = conn
+                let Ok(iface_ref) = conn
                     .object_server()
                     .interface::<_, DBusInterface>(path)
                     .await
-                    .expect("Unable to get reference to DBus interface");
+                else {
+                    log::warn!("Not able to find dbus interface when watching window");
+                    return;
+                };
 
                 log::trace!("Got property change event: {:?}", event);
 
@@ -227,6 +248,21 @@ impl DBusInterface {
         Ok(name.unwrap_or_default())
     }
 
+    /// Returns the width, height, x, and y of the window
+    async fn get_geometry_for_window(&self, window_id: u32) -> fdo::Result<WindowGeometry> {
+        self.ensure_connected().await;
+        let geometry = self
+            .xwayland
+            .get_geometry_for_window(window_id)
+            .map_err(|err| fdo::Error::Failed(err.to_string()))?;
+        Ok(WindowGeometry {
+            width: geometry.width,
+            height: geometry.height,
+            x: geometry.x,
+            y: geometry.y,
+        })
+    }
+
     /// Returns the window ids of the children of the given window
     async fn get_window_children(&self, window_id: u32) -> fdo::Result<Vec<u32>> {
         self.ensure_connected().await;
@@ -284,6 +320,15 @@ impl DBusInterface {
             .map_err(|err| fdo::Error::Failed(err.to_string()))?;
         Ok(value)
     }
+
+    /// Fires when a new window is lifecycle
+    #[dbus_interface(signal)]
+    async fn window_lifecycle(
+        ctxt: &SignalContext<'_>,
+        event: String,
+        window_id: u32,
+        is_primary: bool,
+    ) -> zbus::Result<()>;
 }
 
 /// DBus interface imeplementation for primary Gamescope XWayland instance
@@ -322,7 +367,12 @@ impl DBusInterfacePrimary {
     /// Starts a new thread listening for window created events. Returns
     /// a receiver channel where changes will be sent to. This is usually used
     /// to process DBus property changes outside of the dispatched handler
+    #[deprecated(
+        since = "1.5.0",
+        note = "please use `listen_for_window_lifecycle` instead"
+    )]
     pub fn listen_for_window_created(&self) -> Result<Receiver<u32>, Box<dyn Error>> {
+        #[allow(deprecated)]
         let (_, rx) = self.xwayland.listen_for_window_created()?;
         Ok(rx)
     }
@@ -558,6 +608,7 @@ impl DBusInterfacePrimary {
 
     /// Fires when a new window is created
     #[dbus_interface(signal)]
+    #[deprecated(since = "1.5.0", note = "please use `window_lifecycle` instead")]
     async fn window_created(ctxt: &SignalContext<'_>, window_id: u32) -> zbus::Result<()>;
 
     /// Sets the given window as the main launcher app. This will set an X window
@@ -710,6 +761,10 @@ pub async fn dispatch_primary_property_changes(
 /// Listen for windows created and emit the appropriate DBus signals. This is
 /// split into two methods to bridge the gap between the sync world and the async
 /// world.
+#[deprecated(
+    since = "1.5.0",
+    note = "please use `dispatch_primary_window_lifecycle` instead"
+)]
 pub async fn dispatch_primary_window_created(
     conn: zbus::Connection,
     path: String,
@@ -721,9 +776,43 @@ pub async fn dispatch_primary_window_created(
         // Wait for events from the channel and dispatch them to the DBus interface
         while let Ok(event) = rx.recv() {
             log::debug!("Got window created event: {:?}", event);
+            #[allow(deprecated)]
             dispatch_window_created_to_dbus(conn.clone(), path.clone(), event);
         }
         log::warn!("Stopped listening for windows created");
+    });
+
+    Ok(())
+}
+
+/// Listen for windows lifecycle and emit the appropriate DBus signals. This is
+/// split into two methods to bridge the gap between the sync world and the async
+/// world.
+pub async fn dispatch_primary_window_lifecycle(
+    conn: zbus::Connection,
+    path: String,
+    rx: Receiver<(WindowLifecycleEvent, u32)>,
+    is_primary: bool,
+) -> Result<(), Box<dyn Error>> {
+    tokio::task::spawn_blocking(move || {
+        log::debug!("Started listening for windows lifecycle");
+
+        // Wait for events from the channel and dispatch them to the DBus interface
+        while let Ok((lifecycle_event, window_id)) = rx.recv() {
+            log::debug!(
+                "Got window lifecycle event: {:?} for window id: {:?}",
+                lifecycle_event,
+                window_id
+            );
+            dispatch_window_lifecycle_to_dbus(
+                conn.clone(),
+                path.clone(),
+                lifecycle_event,
+                window_id,
+                is_primary,
+            );
+        }
+        log::warn!("Stopped listening for windows lifecycle");
     });
 
     Ok(())
@@ -734,11 +823,14 @@ fn dispatch_property_change_to_dbus(conn: zbus::Connection, path: String, event:
     tokio::task::spawn(async move {
         // Get the object instance at the given path so we can send DBus signal
         // updates
-        let iface_ref = conn
+        let Ok(iface_ref) = conn
             .object_server()
             .interface::<_, DBusInterfacePrimary>(path)
             .await
-            .expect("Unable to get reference to DBus interface");
+        else {
+            log::warn!("Not able to find dbus interface to dispatch property change event");
+            return;
+        };
 
         let iface = iface_ref.get_mut().await;
         log::trace!("Got property change event: {:?}", event);
@@ -785,6 +877,10 @@ fn dispatch_property_change_to_dbus(conn: zbus::Connection, path: String, event:
 }
 
 /// Dispatch the given event to DBus using async
+#[deprecated(
+    since = "1.5.0",
+    note = "please use `dispatch_window_lifecycle_to_dbus` instead"
+)]
 fn dispatch_window_created_to_dbus(conn: zbus::Connection, path: String, value: u32) {
     tokio::task::spawn(async move {
         // Get the object instance at the given path so we can send DBus signal
@@ -797,10 +893,50 @@ fn dispatch_window_created_to_dbus(conn: zbus::Connection, path: String, value: 
 
         log::debug!("Got window created for window_id: {:?}", value);
 
+        #[allow(deprecated)]
         DBusInterfacePrimary::window_created(iface_ref.signal_context(), value)
             .await
             .unwrap_or_else(|error| {
                 log::warn!("Unable to signal window created event: {:?}", error);
             });
+    });
+}
+
+/// Dispatch the given event to DBus using async
+fn dispatch_window_lifecycle_to_dbus(
+    conn: zbus::Connection,
+    path: String,
+    lifecycle_event: WindowLifecycleEvent,
+    window_id: u32,
+    is_primary: bool,
+) {
+    tokio::task::spawn(async move {
+        // Get the object instance at the given path so we can send DBus signal
+        // updates
+        let Ok(iface_ref) = conn
+            .object_server()
+            .interface::<_, DBusInterface>(path)
+            .await
+        else {
+            log::warn!("Not able to find dbus interface to dispatch window lifecycle event");
+            return;
+        };
+
+        log::debug!(
+            "Got window lifecycle event: {:?} for window_id: {:?}",
+            lifecycle_event,
+            window_id
+        );
+
+        DBusInterface::window_lifecycle(
+            iface_ref.signal_context(),
+            lifecycle_event.to_string(),
+            window_id,
+            is_primary,
+        )
+        .await
+        .unwrap_or_else(|error| {
+            log::warn!("Unable to signal window lifecycle event: {:?}", error);
+        });
     });
 }

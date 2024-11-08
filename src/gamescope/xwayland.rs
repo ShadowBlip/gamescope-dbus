@@ -763,7 +763,7 @@ pub async fn dispatch_primary_property_changes(
 /// world.
 #[deprecated(
     since = "1.5.0",
-    note = "please use `dispatch_primary_window_lifecycle` instead"
+    note = "please use `dispatch_window_lifecycle` instead"
 )]
 pub async fn dispatch_primary_window_created(
     conn: zbus::Connection,
@@ -788,7 +788,7 @@ pub async fn dispatch_primary_window_created(
 /// Listen for windows lifecycle and emit the appropriate DBus signals. This is
 /// split into two methods to bridge the gap between the sync world and the async
 /// world.
-pub async fn dispatch_primary_window_lifecycle(
+pub async fn dispatch_window_lifecycle(
     conn: zbus::Connection,
     path: String,
     rx: Receiver<(WindowLifecycleEvent, u32)>,

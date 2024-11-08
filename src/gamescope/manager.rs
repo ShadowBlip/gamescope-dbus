@@ -198,7 +198,7 @@ impl Manager {
             // Listen for new windows lifecycle
             let window_lifecycle_rx = instance.listen_for_window_lifecycle()?;
             // Propagate gamescope changes to DBus signals
-            xwayland::dispatch_primary_window_lifecycle(
+            xwayland::dispatch_window_lifecycle(
                 self.dbus.clone(),
                 path.clone(),
                 window_lifecycle_rx,

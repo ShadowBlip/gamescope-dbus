@@ -184,7 +184,7 @@ impl Manager {
 
         // Create any xwaylands that don't exist
         for (i, name) in current_xwaylands.into_iter().enumerate() {
-            if self.xwaylands.get(&name).is_some() {
+            if self.xwaylands.contains_key(&name) {
                 log::debug!("XWayland is already managed for {}. Skipping.", name);
                 continue;
             }
@@ -193,10 +193,22 @@ impl Manager {
             let path = format!("/org/shadowblip/Gamescope/XWayland{}", i);
             let instance =
                 xwayland::DBusInterface::new(name.clone(), path.clone(), self.dbus.clone())?;
+            let is_primary = instance.primary().await?;
+
+            // Listen for new windows lifecycle
+            let window_lifecycle_rx = instance.listen_for_window_lifecycle()?;
+            // Propagate gamescope changes to DBus signals
+            xwayland::dispatch_window_lifecycle(
+                self.dbus.clone(),
+                path.clone(),
+                window_lifecycle_rx,
+                is_primary,
+            )
+            .await?;
 
             // Check to see if this is a primary xwayland instance. If it is,
             // also attach the dbus interface with extra methods
-            if instance.primary().await? {
+            if is_primary {
                 log::debug!("Discovered XWayland {} is primary", name);
 
                 // Property changes events
@@ -206,6 +218,7 @@ impl Manager {
                     self.dbus.clone(),
                 )?;
                 let property_changes_rx = primary.listen_for_property_changes()?;
+                #[allow(deprecated)]
                 let window_created_rx = primary.listen_for_window_created()?;
                 self.dbus.object_server().at(path.clone(), primary).await?;
 
@@ -218,6 +231,7 @@ impl Manager {
                 .await?;
 
                 // Propagate gamescope changes to DBus signals
+                #[allow(deprecated)]
                 xwayland::dispatch_primary_window_created(
                     self.dbus.clone(),
                     path.clone(),

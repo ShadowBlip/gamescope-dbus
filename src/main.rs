@@ -3,6 +3,7 @@ use tokio::signal;
 use zbus::{fdo::ObjectManager, Connection};
 
 mod gamescope;
+pub mod utils;
 mod watcher;
 
 #[tokio::main]
@@ -26,6 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut manager = gamescope::manager::Manager::new(connection.clone());
     let manager_dbus = gamescope::manager::DBusInterface::new();
     manager.update_xwaylands().await?;
+    manager.update_waylands().await?;
 
     // Serve the Gamescope Manager interace on DBus
     let manager_path = String::from("/org/shadowblip/Gamescope/Manager");
@@ -35,19 +37,9 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
     connection.request_name("org.shadowblip.Gamescope").await?;
 
-    // Start wayland manager
-    if let Err(err) = manager.start_wayland_manager().await {
-        let err = err.to_string();
-
-        if err.contains("No such file or directory") {
-            log::warn!("Wayland is not supported");
-        } else {
-            log::error!("Error initializing wayland manager, err:{err}");
-        }
-    }
-
     // Listen for gamescope instance changes (added/removed)
     manager.watch_xwaylands().await?;
+    manager.watch_waylands().await?;
 
     // Run the manager in its own thread
     tokio::spawn(async move {

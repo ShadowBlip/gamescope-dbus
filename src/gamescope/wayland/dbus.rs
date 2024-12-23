@@ -17,8 +17,12 @@ pub struct DBusInterface {
 impl DBusInterface {
     /// Returns a new instance of the Wayland DBus interface. Will error if
     /// it cannot establish a connection.
-    pub async fn new(path: String, dbus: Connection) -> Result<DBusInterface, Box<dyn Error>> {
-        let wayland = WaylandManager::new().await?;
+    pub async fn new(
+        path: String,
+        dbus: Connection,
+        socket_path: String,
+    ) -> Result<DBusInterface, Box<dyn Error>> {
+        let wayland = WaylandManager::new(socket_path).await?;
 
         Ok(DBusInterface {
             path,

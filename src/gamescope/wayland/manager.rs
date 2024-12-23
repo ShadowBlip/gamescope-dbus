@@ -1,5 +1,4 @@
-use nix::unistd::Uid;
-use std::{env, error::Error, os::unix::net::UnixStream};
+use std::{error::Error, os::unix::net::UnixStream};
 use tokio::sync::mpsc::{Receiver, Sender};
 use wayland_client::{protocol::wl_registry, Connection, Dispatch, EventQueue, QueueHandle};
 
@@ -130,12 +129,16 @@ impl Dispatch<GamescopeInputMethodManager, ()> for WaylandState {
 
 pub struct WaylandManager {
     command_tx: Sender<WaylandMessage>,
+    socket_path: String,
 }
 
 impl WaylandManager {
-    pub async fn new() -> Result<Self, Box<dyn Error>> {
+    pub async fn new(socket_path: String) -> Result<Self, Box<dyn Error>> {
         let (command_tx, command_rx) = tokio::sync::mpsc::channel::<WaylandMessage>(64);
-        let instance = Self { command_tx };
+        let instance = Self {
+            command_tx,
+            socket_path,
+        };
 
         instance.run(command_rx).await?;
 
@@ -143,14 +146,10 @@ impl WaylandManager {
     }
 
     async fn run(&self, mut command_rx: Receiver<WaylandMessage>) -> Result<(), Box<dyn Error>> {
-        let runtime_dir =
-            env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| format!("/run/user/{}", Uid::current()));
-        let socket_path = format!("{}/gamescope-0", runtime_dir);
-
-        let stream = UnixStream::connect(&socket_path)?;
+        let stream = UnixStream::connect(&self.socket_path)?;
         let conn = wayland_client::Connection::from_socket(stream)?;
 
-        log::info!("Connected to wayland display on: {}", socket_path);
+        log::info!("Connected to wayland display on: {}", self.socket_path);
 
         // Retrieve the WlDisplay Wayland object from the connection. This object is
         // the starting point of any Wayland program, from which all other objects will
@@ -189,7 +188,9 @@ impl WaylandManager {
 
         // Get initial Wayland result to assign control and input manager
         let result = event_queue.blocking_dispatch(&mut state)?;
-        log::debug!("Initial wayland result: {result}");
+        log::debug!("Initial wayland result: {result}, test:{:?}", conn.flush());
+
+        let socket_path = self.socket_path.clone();
 
         // Run loop to listen for commands
         tokio::task::spawn(async move {
@@ -226,6 +227,8 @@ impl WaylandManager {
                     log::error!("Error processing wayland message:{message:?}, err:{err:?}");
                 }
             }
+
+            log::info!("Finished listening to wayland path:{socket_path}");
         });
 
         Ok(())

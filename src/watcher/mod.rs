@@ -2,6 +2,7 @@ use inotify::{EventMask, Inotify, WatchMask};
 use tokio::sync::broadcast::Sender;
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum WatchEvent {
     Create {
         name: String,

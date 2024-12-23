@@ -1,6 +1,5 @@
-use std::future::pending;
-
 use simple_logger::SimpleLogger;
+use tokio::signal;
 use zbus::{fdo::ObjectManager, Connection};
 
 mod gamescope;
@@ -36,6 +35,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .await?;
     connection.request_name("org.shadowblip.Gamescope").await?;
 
+    // Start wayland manager
+    if let Err(err) = manager.start_wayland_manager().await {
+        let err = err.to_string();
+
+        if err.contains("No such file or directory") {
+            log::warn!("Wayland is not supported");
+        } else {
+            log::error!("Error initializing wayland manager, err:{err}");
+        }
+    }
+
     // Listen for gamescope instance changes (added/removed)
     manager.watch_xwaylands().await?;
 
@@ -44,8 +54,8 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         let _ = manager.run().await;
     });
 
-    // Do other things or go to wait forever
-    pending::<()>().await;
-
-    Ok(())
+    signal::ctrl_c().await?;
+    log::info!("Terminating...");
+    drop(connection);
+    std::process::exit(0)
 }

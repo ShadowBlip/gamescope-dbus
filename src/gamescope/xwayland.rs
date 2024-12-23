@@ -15,7 +15,7 @@ pub struct WindowGeometry {
     pub y: i16,
 }
 
-/// DBus interface imeplementation for Gamescope XWayland instance.
+/// DBus interface implementation for Gamescope XWayland instance.
 pub struct DBusInterface {
     path: String,
     xwayland: XWayland,

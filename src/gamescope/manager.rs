@@ -5,12 +5,13 @@ use zbus_macros::dbus_interface;
 
 use crate::watcher::{self, WatchEvent};
 
-use super::xwayland;
+use super::{wayland, xwayland};
 
 /// Manager commands define all the different ways to interact with [Manager]
 /// over a channel. These commands are processed in an asyncronous thread and
 /// dispatched as they come in.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum Command {
     FilesystemEvent { event: WatchEvent },
     XWaylandAdded { name: String },
@@ -43,6 +44,18 @@ impl Manager {
             rx,
             xwaylands: HashMap::new(),
         }
+    }
+
+    /// Starts the wayland manager and adds its dbus interface
+    pub async fn start_wayland_manager(&self) -> Result<(), Box<dyn Error>> {
+        let path = "/org/shadowblip/Gamescope/Wayland".to_owned();
+        let interface = wayland::dbus::DBusInterface::new(path.clone(), self.dbus.clone()).await?;
+        self.dbus
+            .object_server()
+            .at(path.clone(), interface)
+            .await?;
+        log::info!("Initialized wayland manager at path:{path}");
+        Ok(())
     }
 
     /// Starts listening for [Command] messages to be sent from clients and

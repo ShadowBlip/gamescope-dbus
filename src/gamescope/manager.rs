@@ -146,6 +146,7 @@ impl Manager {
                 }
                 Command::WaylandAdded { path } => {
                     if !self.waylands.contains(&path) {
+                        // Added sleep here because sometimes we get errors regarding broken IO connection due to starting it too fast when gamescope is restarted
                         tokio::time::sleep(Duration::from_secs(1)).await;
                         self.start_wayland_manager_for_path(path).await;
                     }

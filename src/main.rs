@@ -1,9 +1,9 @@
-use std::future::pending;
-
 use simple_logger::SimpleLogger;
+use tokio::signal;
 use zbus::{fdo::ObjectManager, Connection};
 
 mod gamescope;
+pub mod utils;
 mod watcher;
 
 #[tokio::main]
@@ -27,6 +27,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut manager = gamescope::manager::Manager::new(connection.clone());
     let manager_dbus = gamescope::manager::DBusInterface::new();
     manager.update_xwaylands().await?;
+    manager.update_waylands().await?;
 
     // Serve the Gamescope Manager interace on DBus
     let manager_path = String::from("/org/shadowblip/Gamescope/Manager");
@@ -38,14 +39,15 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Listen for gamescope instance changes (added/removed)
     manager.watch_xwaylands().await?;
+    manager.watch_waylands().await?;
 
     // Run the manager in its own thread
     tokio::spawn(async move {
         let _ = manager.run().await;
     });
 
-    // Do other things or go to wait forever
-    pending::<()>().await;
-
-    Ok(())
+    signal::ctrl_c().await?;
+    log::info!("Terminating...");
+    drop(connection);
+    std::process::exit(0)
 }

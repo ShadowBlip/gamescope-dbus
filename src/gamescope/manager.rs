@@ -1,20 +1,50 @@
-use std::{collections::HashMap, error::Error, time::Duration};
-use tokio::sync::{broadcast, mpsc};
+use std::{
+    collections::{HashMap, HashSet},
+    error::Error,
+    time::Duration,
+};
+use tokio::{
+    fs,
+    sync::{broadcast, mpsc},
+};
 use zbus::{fdo, zvariant::ObjectPath, Connection};
 use zbus_macros::dbus_interface;
 
-use crate::watcher::{self, WatchEvent};
+use crate::{
+    utils::{get_run_user_dir, is_gamescope_socket_file},
+    watcher::{self, WatchEvent},
+};
 
-use super::xwayland;
+use super::{wayland, xwayland};
+
+#[derive(Debug, Copy, Clone)]
+pub enum WatchType {
+    X11,
+    Wayland,
+}
 
 /// Manager commands define all the different ways to interact with [Manager]
 /// over a channel. These commands are processed in an asyncronous thread and
 /// dispatched as they come in.
 #[derive(Debug)]
+#[allow(dead_code)]
 pub enum Command {
-    FilesystemEvent { event: WatchEvent },
-    XWaylandAdded { name: String },
-    XWaylandRemoved { name: String },
+    FilesystemEvent {
+        event: WatchEvent,
+        watch_type: WatchType,
+    },
+    XWaylandAdded {
+        name: String,
+    },
+    XWaylandRemoved {
+        name: String,
+    },
+    WaylandAdded {
+        path: String,
+    },
+    WaylandRemoved {
+        path: String,
+    },
 }
 
 /// Gamescope Manager instance
@@ -23,6 +53,8 @@ pub struct Manager {
     dbus: Connection,
     /// Mapping of XWayland names (":0", ":1") to DBus path ("/org/shadowblip/Gamescope/XWayland0")
     xwaylands: HashMap<String, String>,
+    /// List of existing wayland sockets
+    waylands: HashSet<String>,
     /// The transmit side of the [rx] channel used to send [Command] messages.
     /// This can be cloned to allow child objects to communicate up to the
     /// manager.
@@ -42,7 +74,61 @@ impl Manager {
             tx,
             rx,
             xwaylands: HashMap::new(),
+            waylands: HashSet::new(),
         }
+    }
+
+    /// Starts the wayland manager and adds its dbus interface
+    pub async fn start_wayland_manager(&self, path: String) -> Result<(), Box<dyn Error>> {
+        let id = path
+            .split('-')
+            .last()
+            .ok_or("Wrong id found in wayland gamescope socket file name")?;
+        let dbus_path = format!("/org/shadowblip/Gamescope/Wayland{}", id);
+        let interface =
+            wayland::dbus::DBusInterface::new(dbus_path.clone(), self.dbus.clone(), path).await?;
+        self.dbus
+            .object_server()
+            .at(dbus_path.clone(), interface)
+            .await?;
+        log::info!("Initialized wayland manager at path:{dbus_path}");
+        Ok(())
+    }
+
+    /// Removes the wayland manager and its dbus interface
+    pub async fn remove_wayland_manager(&self, path: String) -> Result<(), Box<dyn Error>> {
+        let id = path
+            .split('-')
+            .last()
+            .ok_or("Wrong id found in wayland gamescope socket file name")?;
+        let dbus_path = format!("/org/shadowblip/Gamescope/Wayland{}", id);
+        self.dbus
+            .object_server()
+            .remove::<wayland::dbus::DBusInterface, String>(dbus_path.clone())
+            .await?;
+        log::info!("Removed wayland manager at path:{dbus_path}");
+        Ok(())
+    }
+
+    async fn start_wayland_manager_for_path(&mut self, path: String) {
+        if self.waylands.contains(&path) {
+            return;
+        }
+
+        if let Err(err) = self.start_wayland_manager(path.clone()).await {
+            log::error!("Error starting wayland manager and interface at path:{path}, err:{err:?}");
+            return;
+        }
+
+        self.waylands.insert(path);
+    }
+
+    async fn remove_wayland_manager_for_path(&mut self, path: String) {
+        if let Err(err) = self.remove_wayland_manager(path.clone()).await {
+            log::error!("Error removing wayland manager at path:{path}, err:{err:?}");
+        }
+
+        self.waylands.remove(&path);
     }
 
     /// Starts listening for [Command] messages to be sent from clients and
@@ -52,11 +138,23 @@ impl Manager {
         while let Some(cmd) = self.rx.recv().await {
             log::debug!("Received command: {:?}", cmd);
             match cmd {
-                Command::FilesystemEvent { event } => {
-                    self.on_watch_event(event).await;
+                Command::FilesystemEvent { event, watch_type } => {
+                    self.on_watch_event(event, watch_type).await;
                 }
                 Command::XWaylandAdded { name: _ } | Command::XWaylandRemoved { name: _ } => {
                     self.update_xwaylands().await?;
+                }
+                Command::WaylandAdded { path } => {
+                    if !self.waylands.contains(&path) {
+                        // Added sleep here because sometimes we get errors regarding broken IO connection due to starting it too fast when gamescope is restarted
+                        tokio::time::sleep(Duration::from_secs(1)).await;
+                        self.start_wayland_manager_for_path(path).await;
+                    }
+                }
+                Command::WaylandRemoved { path } => {
+                    if self.waylands.contains(&path) {
+                        self.remove_wayland_manager_for_path(path).await;
+                    }
                 }
             }
         }
@@ -65,52 +163,108 @@ impl Manager {
     }
 
     /// Executed when a filesystem watch event occurs
-    pub async fn on_watch_event(&mut self, event: WatchEvent) {
+    async fn on_watch_event(&mut self, event: WatchEvent, watch_type: WatchType) {
         log::debug!("Got watch event: {:?}", event);
         match event {
             WatchEvent::Create {
                 name,
                 mask: _,
-                path: _,
+                path,
             } => {
                 log::info!("Got create event: {}", name);
-                if !name.starts_with('X') {
-                    return;
-                }
-                let suffix = name.strip_prefix('X').unwrap();
 
-                // Skip X11 sockets with weird names
-                if suffix.parse::<u64>().is_err() {
-                    return;
-                }
-                let name = format!(":{}", suffix);
-                let _ = self.tx.send(Command::XWaylandAdded { name }).await;
+                match watch_type {
+                    WatchType::Wayland => self.on_wayland_create(name, path).await,
+                    WatchType::X11 => self.on_x11_create(name).await,
+                };
             }
             WatchEvent::Delete {
                 name,
                 mask: _,
-                path: _,
+                path,
             } => {
                 log::info!("Got delete event: {}", name);
-                if !name.starts_with('X') {
-                    return;
-                }
-                let suffix = name.strip_prefix('X').unwrap();
 
-                // Skip X11 sockets with weird names
-                if suffix.parse::<u64>().is_err() {
-                    return;
-                }
-                let name = format!(":{}", suffix);
-                let _ = self.tx.send(Command::XWaylandRemoved { name }).await;
+                match watch_type {
+                    WatchType::Wayland => self.on_wayland_delete(name, path).await,
+                    WatchType::X11 => self.on_x11_delete(name).await,
+                };
             }
             _ => (),
         }
     }
 
+    async fn on_x11_create(&self, name: String) {
+        if !name.starts_with('X') {
+            return;
+        }
+
+        let suffix = name.strip_prefix('X').unwrap();
+
+        // Skip X11 sockets with weird names
+        if suffix.parse::<u64>().is_err() {
+            return;
+        }
+        let name = format!(":{}", suffix);
+        let _ = self.tx.send(Command::XWaylandAdded { name }).await;
+    }
+
+    async fn on_x11_delete(&self, name: String) {
+        if !name.starts_with('X') {
+            return;
+        }
+
+        let suffix = name.strip_prefix('X').unwrap();
+
+        // Skip X11 sockets with weird names
+        if suffix.parse::<u64>().is_err() {
+            return;
+        }
+        let name = format!(":{}", suffix);
+        let _ = self.tx.send(Command::XWaylandRemoved { name }).await;
+    }
+
+    async fn on_wayland_create(&self, name: String, path: String) {
+        if !is_gamescope_socket_file(&name) {
+            return;
+        }
+
+        let _ = self
+            .tx
+            .send(Command::WaylandAdded {
+                path: format!("{path}/{name}"),
+            })
+            .await;
+    }
+
+    async fn on_wayland_delete(&self, name: String, path: String) {
+        if !is_gamescope_socket_file(&name) {
+            return;
+        }
+
+        let _ = self
+            .tx
+            .send(Command::WaylandRemoved {
+                path: format!("{path}/{name}"),
+            })
+            .await;
+    }
+
+    /// Watches for new wayland instances to start and adds them.
+    pub async fn watch_waylands(&self) -> Result<(), Box<dyn Error>> {
+        self.watch_paths(get_run_user_dir(), WatchType::Wayland)
+            .await
+    }
+
     /// Watches for new xwayland instances to start and adds them.
     pub async fn watch_xwaylands(&self) -> Result<(), Box<dyn Error>> {
-        // Create a watch channel for X11 instance filesystem events
+        self.watch_paths("/tmp/.X11-unix".to_string(), WatchType::X11)
+            .await
+    }
+
+    /// Watches paths and triggers events.
+    async fn watch_paths(&self, path: String, watch_type: WatchType) -> Result<(), Box<dyn Error>> {
+        // Create a watch channel for filesystem events
         let (watcher_tx, mut watcher_rx) = broadcast::channel(32);
 
         // Create a copy of the transmitter, so watch events can propagate to
@@ -128,7 +282,9 @@ impl Manager {
                 }
                 let event = event.unwrap();
                 log::debug!("Dispatcher received event: {:?}", event);
-                let result = manager_tx.send(Command::FilesystemEvent { event }).await;
+                let result = manager_tx
+                    .send(Command::FilesystemEvent { event, watch_type })
+                    .await;
                 if result.is_err() {
                     log::warn!("Failed to send command: {:?}", result);
                 }
@@ -137,7 +293,6 @@ impl Manager {
 
         // Start watching for filesystem events
         std::thread::spawn(move || {
-            let path = "/tmp/.X11-unix".to_string();
             log::debug!("Starting filesystem watch on: {}", path);
             watcher::watch(path, watcher_tx);
         });
@@ -247,6 +402,46 @@ impl Manager {
         }
 
         log::info!("Managed XWaylands: {:?}", self.xwaylands);
+
+        Ok(())
+    }
+
+    /// Discovers and adds/removes wayland interfaces
+    pub async fn update_waylands(&mut self) -> Result<(), Box<dyn Error>> {
+        let path = get_run_user_dir();
+        let mut dir = fs::read_dir(path).await?;
+        let mut current_waylands = HashSet::new();
+
+        while let Ok(Some(folder)) = dir.next_entry().await {
+            let name = folder.file_name().to_string_lossy().to_string();
+            if !is_gamescope_socket_file(&name) {
+                continue;
+            }
+
+            let path = folder.path().to_string_lossy().to_string();
+            current_waylands.insert(path);
+        }
+
+        // Remove
+        for wayland in self.waylands.clone() {
+            if current_waylands.contains(&wayland) {
+                continue;
+            }
+
+            self.remove_wayland_manager_for_path(wayland).await;
+        }
+
+        // Add
+        for path in current_waylands {
+            if self.waylands.contains(&path) {
+                continue;
+            }
+
+            // Start new wayland dbus interface
+            self.start_wayland_manager_for_path(path).await;
+        }
+
+        log::info!("Managed Waylands: {:?}", self.waylands);
 
         Ok(())
     }

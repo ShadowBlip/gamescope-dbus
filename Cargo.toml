@@ -24,3 +24,5 @@ inotify = "0.11.0"
 gamescope-wayland-client = { git = "https://github.com/ShadowBlip/gamescope-wayland-client.git", version = "0.1.0" }
 gamescope-x11-client = { git = "https://github.com/ShadowBlip/gamescope-x11-client.git", rev = "9526a6e0d684d9530e8705f7f1a53efa401350f3" }
 serde = "1.0.214"
+nix = { version = "0.29.0", features = ["user"] }
+tokio-stream = "0.1.17"

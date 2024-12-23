@@ -253,7 +253,7 @@ impl WaylandManager {
             log::error!("Could not flush wayland queue, err:{err:?}");
             err.to_string()
         })?;
-        event_queue.dispatch_pending(state).map_err(|err| {
+        event_queue.blocking_dispatch(state).map_err(|err| {
             log::error!("Could not dispatch pending events, err:{err:?}");
             err.to_string()
         })

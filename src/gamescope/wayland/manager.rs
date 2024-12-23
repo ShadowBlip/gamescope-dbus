@@ -1,11 +1,7 @@
 use nix::unistd::Uid;
-use std::{env, error::Error, os::unix::net::UnixStream, sync::Arc};
-use tokio::sync::{
-    mpsc::{Receiver, Sender},
-    Mutex,
-};
-use tokio_stream::{wrappers::ReceiverStream, StreamExt};
-use wayland_client::{protocol::wl_registry, Connection, Dispatch, QueueHandle};
+use std::{env, error::Error, os::unix::net::UnixStream};
+use tokio::sync::mpsc::{Receiver, Sender};
+use wayland_client::{protocol::wl_registry, Connection, Dispatch, EventQueue, QueueHandle};
 
 use gamescope_wayland_client::{
     control::gamescope_control::{self, GamescopeControl, ScreenshotFlags, ScreenshotType},
@@ -24,13 +20,10 @@ pub fn screenshot_type_from_u8(value: u8) -> Option<ScreenshotType> {
 
 /// Enum for internal wayland commands
 /// Values starting with Command will be sent from consuming code and processed in the WaylandManager
-/// Values starting with Rpc are sent from WaylandManager and processed by consuming code
 #[derive(Clone, Debug)]
 pub enum WaylandMessage {
+    // Command used to take a screenshot
     CommandTakeScreenshot(Sender<Result<(), String>>, String, ScreenshotType),
-    RpcRegisterControl(GamescopeControl),
-    RpcRegisterInputMethodManager(GamescopeInputMethodManager),
-    RpcTerminate,
 }
 
 // https://github.com/Smithay/wayland-rs/blob/master/wayland-client/examples/simple_window.rs
@@ -38,15 +31,15 @@ pub enum WaylandMessage {
 // This struct represents the state of our app. This simple app does not
 // need any state, by this type still supports the `Dispatch` implementations.
 pub struct WaylandState {
-    pub rpc_tx: Sender<WaylandMessage>,
-    pub running: bool,
+    control: Option<GamescopeControl>,
+    input_method_manager: Option<GamescopeInputMethodManager>,
 }
 
 impl WaylandState {
-    fn new(rpc_tx: Sender<WaylandMessage>) -> Self {
+    fn new() -> Self {
         WaylandState {
-            rpc_tx,
-            running: true,
+            control: None,
+            input_method_manager: None,
         }
     }
 }
@@ -83,34 +76,12 @@ impl Dispatch<wl_registry::WlRegistry, ()> for WaylandState {
                 "gamescope_control" => {
                     log::debug!("Found gamescope control interface for Wayland!");
                     let control = registry.bind::<GamescopeControl, _, _>(name, version, qh, ());
-
-                    let tx = state.rpc_tx.clone();
-                    tokio::spawn(async move {
-                        if let Err(err) = tx.send(WaylandMessage::RpcRegisterControl(control)).await
-                        {
-                            log::error!(
-                                "Error sending WaylandMessage::RpcRegisterControl, err:{err:?}"
-                            );
-                        }
-                    });
+                    state.control = Some(control);
                 }
                 "gamescope_input_method_manager" => {
                     let input_method_manager =
                         registry.bind::<GamescopeInputMethodManager, _, _>(name, version, qh, ());
-
-                    let tx = state.rpc_tx.clone();
-                    tokio::spawn(async move {
-                        if let Err(err) = tx
-                            .send(WaylandMessage::RpcRegisterInputMethodManager(
-                                input_method_manager,
-                            ))
-                            .await
-                        {
-                            log::error!(
-                                "Error sending WaylandMessage::RpcRegisterInputMethodManager, err:{err:?}"
-                            );
-                        }
-                    });
+                    state.input_method_manager = Some(input_method_manager);
                 }
                 _ => {}
             }
@@ -158,26 +129,20 @@ impl Dispatch<GamescopeInputMethodManager, ()> for WaylandState {
 }
 
 pub struct WaylandManager {
-    control: Arc<Mutex<Option<GamescopeControl>>>,
-    input_method_manager: Arc<Mutex<Option<GamescopeInputMethodManager>>>,
     command_tx: Sender<WaylandMessage>,
 }
 
 impl WaylandManager {
     pub async fn new() -> Result<Self, Box<dyn Error>> {
         let (command_tx, command_rx) = tokio::sync::mpsc::channel::<WaylandMessage>(64);
-        let instance = Self {
-            control: Arc::default(),
-            input_method_manager: Arc::default(),
-            command_tx,
-        };
+        let instance = Self { command_tx };
 
         instance.run(command_rx).await?;
 
         Ok(instance)
     }
 
-    async fn run(&self, command_rx: Receiver<WaylandMessage>) -> Result<(), Box<dyn Error>> {
+    async fn run(&self, mut command_rx: Receiver<WaylandMessage>) -> Result<(), Box<dyn Error>> {
         let runtime_dir =
             env::var("XDG_RUNTIME_DIR").unwrap_or_else(|_| format!("/run/user/{}", Uid::current()));
         let socket_path = format!("{}/gamescope-0", runtime_dir);
@@ -206,8 +171,7 @@ impl WaylandManager {
         let _registry = display.get_registry(&qh, ());
 
         // Create state for the application
-        let (rpc_tx, rpc_rx) = tokio::sync::mpsc::channel::<WaylandMessage>(64);
-        let mut state = WaylandState::new(rpc_tx.clone());
+        let mut state = WaylandState::new();
 
         // To actually receive the events, we invoke the `sync_roundtrip` method. This method
         // is special and you will generally only invoke it during the setup of your program:
@@ -223,63 +187,27 @@ impl WaylandManager {
         // globals.
         event_queue.roundtrip(&mut state)?;
 
-        // Run the event loop in a separate thread
-        tokio::task::spawn_blocking(move || {
-            while state.running {
-                let result = event_queue.blocking_dispatch(&mut state);
+        // Get initial Wayland result to assign control and input manager
+        let result = event_queue.blocking_dispatch(&mut state)?;
+        log::debug!("Initial wayland result: {result}");
 
-                log::debug!("Got Wayland result: {:?}", result);
-
-                if let Err(err) = result {
-                    log::error!(
-                        "Got error result when processing wayland event queue, err:{err:?}"
-                    );
-                    state.running = false;
-                }
-            }
-
-            if let Err(err) = rpc_tx.blocking_send(WaylandMessage::RpcTerminate) {
-                log::error!("Error sending WaylandMessage::RpcTerminate, err:{err:?}");
-            }
-        });
-
-        // Wrap channels into streams
-        let rpc_stream = ReceiverStream::new(rpc_rx);
-        let command_stream = ReceiverStream::new(command_rx);
-
-        // Clone state so we can modify it in the stream loop
-        let control = self.control.clone();
-        let input_method_manager = self.input_method_manager.clone();
-
-        // Run loop to listen for commands and rpcs
+        // Run loop to listen for commands
         tokio::task::spawn(async move {
-            let mut merged_stream = rpc_stream.merge(command_stream);
-            while let Some(message) = merged_stream.next().await {
+            while let Some(message) = command_rx.recv().await {
                 log::debug!("Wayland Message: {:?}", message);
 
                 let res: Result<(), Box<dyn Error>> = {
                     match message.clone() {
-                        WaylandMessage::RpcTerminate => break,
-                        WaylandMessage::RpcRegisterControl(c) => {
-                            *control.lock().await = Some(c);
-                        }
-                        WaylandMessage::RpcRegisterInputMethodManager(imm) => {
-                            *input_method_manager.lock().await = Some(imm)
-                        }
-
                         WaylandMessage::CommandTakeScreenshot(tx, file_path, screenshot_type) => {
-                            let res = Self::use_control(&control, |control| {
+                            let res = Self::use_state(&mut state, |state| {
                                 log::info!("Taking screenshot of type:{screenshot_type:?} and saving to {file_path}");
 
-                                control.take_screenshot(
+                                state.control.as_ref().unwrap().take_screenshot(
                                     file_path,
                                     screenshot_type,
                                     ScreenshotFlags::Dummy,
                                 );
-                                conn.flush().map_err(|err| {
-                                    log::error!("Could not flush wayland queue when taking screenshot, err:{err:?}");
-                                    err.to_string()
-                                })?;
+                                Self::dispatch(&conn, &mut event_queue, state)?;
 
                                 Ok(())
                             })
@@ -303,19 +231,32 @@ impl WaylandManager {
         Ok(())
     }
 
-    async fn use_control<F>(
-        control: &Arc<Mutex<Option<GamescopeControl>>>,
-        callback: F,
-    ) -> Result<(), String>
+    async fn use_state<F>(state: &mut WaylandState, callback: F) -> Result<(), String>
     where
-        F: FnOnce(&GamescopeControl) -> Result<(), String>,
+        F: FnOnce(&mut WaylandState) -> Result<(), String>,
     {
-        let control = control.lock().await;
-        let control = control.as_ref().ok_or("No control found")?;
+        if state.control.is_none() {
+            return Err("No control found".to_owned());
+        }
 
-        callback(control)?;
+        callback(state)?;
 
         Ok(())
+    }
+
+    fn dispatch(
+        conn: &Connection,
+        event_queue: &mut EventQueue<WaylandState>,
+        state: &mut WaylandState,
+    ) -> Result<usize, String> {
+        conn.flush().map_err(|err| {
+            log::error!("Could not flush wayland queue, err:{err:?}");
+            err.to_string()
+        })?;
+        event_queue.dispatch_pending(state).map_err(|err| {
+            log::error!("Could not dispatch pending events, err:{err:?}");
+            err.to_string()
+        })
     }
 
     pub async fn send(&self, msg: WaylandMessage) -> Result<(), Box<dyn Error>> {

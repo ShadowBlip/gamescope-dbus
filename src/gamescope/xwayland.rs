@@ -734,6 +734,22 @@ impl DBusInterfacePrimary {
             .map_err(|err| fdo::Error::Failed(err.to_string()))?;
         Ok(())
     }
+
+    /// Sets the display mode control for Gamescope on the given xwayland instance
+    /// to change the display resolution.
+    async fn set_mode_control(
+        &self,
+        xwayland_id: u32,
+        width: u32,
+        height: u32,
+        super_res: u32,
+    ) -> fdo::Result<()> {
+        self.ensure_connected().await;
+        self.xwayland
+            .set_mode_control(xwayland_id, width, height, super_res)
+            .map_err(|err| fdo::Error::Failed(err.to_string()))?;
+        Ok(())
+    }
 }
 
 /// Listen for property changes and emit the appropriate DBus signals. This is

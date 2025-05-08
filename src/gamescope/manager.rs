@@ -128,7 +128,9 @@ impl Manager {
             log::error!("Error removing wayland manager at path:{path}, err:{err:?}");
         }
 
-        self.waylands.remove(&path);
+        if let Some((name, _)) = self.xwaylands.iter().find(|x| *x.1 == path) {
+            self.waylands.remove(name);
+        }
     }
 
     /// Starts listening for [Command] messages to be sent from clients and
@@ -141,9 +143,8 @@ impl Manager {
                 Command::FilesystemEvent { event, watch_type } => {
                     self.on_watch_event(event, watch_type).await;
                 }
-                Command::XWaylandAdded { name: _ } | Command::XWaylandRemoved { name: _ } => {
-                    self.update_xwaylands().await?;
-                }
+                Command::XWaylandAdded { name: _ } => self.update_xwaylands().await?,
+                Command::XWaylandRemoved { name } => self.remove_xwayland(name).await?,
                 Command::WaylandAdded { path } => {
                     if !self.waylands.contains(&path) {
                         // Added sleep here because sometimes we get errors regarding broken IO connection due to starting it too fast when gamescope is restarted
@@ -300,6 +301,34 @@ impl Manager {
         Ok(())
     }
 
+    pub async fn remove_xwayland(&mut self, name: String) -> Result<(), Box<dyn Error>> {
+        let Some((name, dbus_path)) = self
+            .xwaylands
+            .iter()
+            .find(|x| *x.0 == name)
+            .map(|x| (x.0.clone(), x.1.clone()))
+        else {
+            log::warn!("Skipping remove since xwayland:{name} isn't managed");
+            return Ok(());
+        };
+
+        log::info!("XWayland was removed: {}", name);
+        let path = ObjectPath::from_string_unchecked(dbus_path.to_owned());
+        self.dbus
+            .object_server()
+            .remove::<xwayland::DBusInterface, ObjectPath>(path.clone())
+            .await?;
+        let _ = self
+            .dbus
+            .object_server()
+            .remove::<xwayland::DBusInterfacePrimary, ObjectPath>(path)
+            .await;
+
+        self.xwaylands.remove(&name);
+
+        Ok(())
+    }
+
     /// Discovers and adds/removes xwayland interfaces
     pub async fn update_xwaylands(&mut self) -> Result<(), Box<dyn Error>> {
         log::info!("Updating XWaylands");
@@ -314,27 +343,16 @@ impl Manager {
 
         // Remove any xwaylands that no longer exist
         let mut to_remove: Vec<String> = Vec::new();
-        for (name, dbus_path) in self.xwaylands.iter() {
+        for (name, _) in self.xwaylands.iter() {
             if current_xwaylands.contains(name) {
                 log::debug!("XWayland still exists for {}. Skipping.", name);
                 continue;
             }
 
-            log::info!("XWayland was removed: {}", name);
-            let path = ObjectPath::from_string_unchecked(dbus_path.clone());
-            self.dbus
-                .object_server()
-                .remove::<xwayland::DBusInterface, ObjectPath>(path.clone())
-                .await?;
-            let _ = self
-                .dbus
-                .object_server()
-                .remove::<xwayland::DBusInterfacePrimary, ObjectPath>(path)
-                .await;
             to_remove.push(name.clone());
         }
         for name in to_remove {
-            self.xwaylands.remove(&name);
+            self.remove_xwayland(name).await?;
         }
 
         // Create any xwaylands that don't exist

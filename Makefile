@@ -1,14 +1,15 @@
 NAME := $(shell grep 'name =' Cargo.toml | head -n 1 | cut -d'"' -f2)
 VERSION := $(shell grep '^version =' Cargo.toml | cut -d'"' -f2)
-ARCH := $(shell uname -m)
+ARCH ?= $(shell uname -m)
+TARGET_ARCH ?= $(ARCH)-unknown-linux-gnu
 DBUS_NAME := org.shadowblip.Gamescope
 ALL_RS := $(shell find src -name '*.rs')
 PREFIX ?= /usr
 CACHE_DIR := .cache
 
 # Docker image variables
-IMAGE_NAME ?= rust
-IMAGE_TAG ?= 1.81
+IMAGE_NAME ?= gamescope-dbus-builder
+IMAGE_TAG ?= latest
 
 ##@ General
 
@@ -29,7 +30,7 @@ help: ## Display this help.
 
 .PHONY: install
 install: build ## Install gamescope-dbus to the given prefix (default: PREFIX=/usr)
-	install -D -m 755 target/release/$(NAME) \
+	install -D -m 755 target/$(TARGET_ARCH)/release/$(NAME) \
 		$(PREFIX)/bin/$(NAME)
 	install -D -m 644 rootfs/usr/share/dbus-1/session.d/$(DBUS_NAME).conf \
 		$(PREFIX)/share/dbus-1/session.d/$(DBUS_NAME).conf
@@ -54,21 +55,21 @@ uninstall: ## Uninstall gamescope-dbus
 ##@ Development
 
 .PHONY: debug
-debug: target/debug/$(NAME)  ## Build debug build
-target/debug/$(NAME): $(ALL_RS) Cargo.lock Cargo.toml
-	cargo build
+debug: target/$(TARGET_ARCH)/debug/$(NAME)  ## Build debug build
+target/$(TARGET_ARCH)/debug/$(NAME): $(ALL_RS) Cargo.lock Cargo.toml
+	cargo build --target $(TARGET_ARCH)
 
 .PHONY: build
-build: target/release/$(NAME) ## Build release build
-target/release/$(NAME): $(ALL_RS) Cargo.lock Cargo.toml
-	cargo build --release
+build: target/$(TARGET_ARCH)/release/$(NAME) ## Build release build
+target/$(TARGET_ARCH)/release/$(NAME): $(ALL_RS) Cargo.lock Cargo.toml
+	cargo build --release --target $(TARGET_ARCH)
 
 .PHONY: all
 all: build debug ## Build release and debug builds
 
 .PHONY: run
 run: debug ## Build and run
-	./target/debug/$(NAME)
+	./target/$(TARGET_ARCH)/debug/$(NAME)
 
 .PHONY: gamescope
 gamescope: ## Run a test gamescope instance
@@ -96,25 +97,25 @@ setup: /usr/share/dbus-1/session.d/$(DBUS_NAME).conf ## Install dbus policies
 ##@ Distribution
 
 .PHONY: dist
-dist: dist/$(NAME).tar.gz dist/$(NAME)-$(VERSION)-1.$(ARCH).rpm ## Create all redistributable versions of the project
+dist: dist/$(NAME)-$(ARCH).tar.gz dist/$(NAME)-$(VERSION)-1.$(ARCH).rpm ## Create all redistributable versions of the project
 
 .PHONY: dist-archive
-dist-archive: dist/$(NAME).tar.gz ## Build a redistributable archive of the project
-dist/$(NAME).tar.gz: build
+dist-archive: dist/$(NAME)-$(ARCH).tar.gz ## Build a redistributable archive of the project
+dist/$(NAME)-$(ARCH).tar.gz: build
 	rm -rf $(CACHE_DIR)/gamescope-dbus
 	mkdir -p $(CACHE_DIR)/gamescope-dbus
 	$(MAKE) install PREFIX=$(CACHE_DIR)/gamescope-dbus/usr NO_RELOAD=true
 	mkdir -p dist
 	tar cvfz $@ -C $(CACHE_DIR) gamescope-dbus
-	cd dist && sha256sum gamescope-dbus.tar.gz > gamescope-dbus.tar.gz.sha256.txt
+	cd dist && sha256sum gamescope-dbus-$(ARCH).tar.gz > gamescope-dbus-$(ARCH).tar.gz.sha256.txt
 
 .PHONY: dist-rpm
 dist-rpm: dist/$(NAME)-$(VERSION)-1.$(ARCH).rpm ## Build a redistributable RPM package
-dist/$(NAME)-$(VERSION)-1.$(ARCH).rpm: target/release/$(NAME)
+dist/$(NAME)-$(VERSION)-1.$(ARCH).rpm: target/$(TARGET_ARCH)/release/$(NAME)
 	mkdir -p dist
 	cargo install cargo-generate-rpm
-	cargo generate-rpm
-	cp ./target/generate-rpm/$(NAME)-$(VERSION)-1.$(ARCH).rpm dist
+	cargo generate-rpm --target $(TARGET_ARCH)
+	cp ./target/$(TARGET_ARCH)/generate-rpm/$(NAME)-$(VERSION)-1.$(ARCH).rpm dist
 	cd dist && sha256sum $(NAME)-$(VERSION)-1.$(ARCH).rpm > $(NAME)-$(VERSION)-1.$(ARCH).rpm.sha256.txt
 
 .PHONY: introspect
@@ -146,10 +147,12 @@ sem-release: ## Publish a release with semantic release
 .PHONY: in-docker
 in-docker:
 	@# Run the given make target inside Docker
+	docker build -t $(IMAGE_NAME):$(IMAGE_TAG) .
 	docker run --rm \
 		-v $(PWD):/src \
 		--workdir /src \
 		-e HOME=/home/build \
+		-e ARCH=$(ARCH) \
 		--user $(shell id -u):$(shell id -g) \
 		$(IMAGE_NAME):$(IMAGE_TAG) \
 		make $(TARGET)

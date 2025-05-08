@@ -7,7 +7,7 @@ description = "Daemon for interacting with Gamescope over DBus"
 
 [package.metadata.generate-rpm]
 assets = [
-  { source = "./target/release/gamescope-dbus", dest = "/usr/bin/gamescope-dbus", mode = "755" },
+  { source = "target/release/gamescope-dbus", dest = "/usr/bin/gamescope-dbus", mode = "755" },
   { source = "./rootfs/usr/share/dbus-1/session.d/org.shadowblip.Gamescope.conf", dest = "/usr/share/dbus-1/session.d/org.shadowblip.Gamescope.conf", mode = "644" },
   { source = "./rootfs/usr/share/dbus-1/services/org.shadowblip.Gamescope.service", dest = "/usr/share/dbus-1/services/org.shadowblip.Gamescope.service", mode = "644" },
   { source = "./rootfs/usr/lib/systemd/user/gamescope-dbus.service", dest = "/usr/lib/systemd/user/gamescope-dbus.service", mode = "644" },

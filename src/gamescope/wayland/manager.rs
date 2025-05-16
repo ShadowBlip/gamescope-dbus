@@ -201,7 +201,7 @@ impl WaylandManager {
                     match message.clone() {
                         WaylandMessage::CommandTakeScreenshot(tx, file_path, screenshot_type) => {
                             let res = Self::use_state(&mut state, |state| {
-                                log::info!("Taking screenshot of type:{screenshot_type:?} and saving to {file_path}");
+                                log::info!("Taking screenshot of type: {screenshot_type:?} and saving to {file_path}");
 
                                 state.control.as_ref().unwrap().take_screenshot(
                                     file_path,
@@ -224,11 +224,11 @@ impl WaylandManager {
                 };
 
                 if let Err(err) = res {
-                    log::error!("Error processing wayland message:{message:?}, err:{err:?}");
+                    log::error!("Error processing wayland message: {message:?}, err:{err:?}");
                 }
             }
 
-            log::info!("Finished listening to wayland path:{socket_path}");
+            log::info!("Finished listening to wayland path: {socket_path}");
         });
 
         Ok(())

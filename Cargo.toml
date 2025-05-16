@@ -26,3 +26,6 @@ gamescope-x11-client = { git = "https://github.com/ShadowBlip/gamescope-x11-clie
 serde = "1.0.214"
 nix = { version = "0.29.0", features = ["user"] }
 tokio-stream = "0.1.17"
+packed_struct = "0.10.1"
+libc = "0.2.172"
+thiserror = "2.0.12"

@@ -82,7 +82,7 @@ impl Manager {
     pub async fn start_wayland_manager(&self, path: String) -> Result<(), Box<dyn Error>> {
         let id = path
             .split('-')
-            .last()
+            .next_back()
             .ok_or("Wrong id found in wayland gamescope socket file name")?;
         let dbus_path = format!("/org/shadowblip/Gamescope/Wayland{}", id);
         let interface =
@@ -91,7 +91,12 @@ impl Manager {
             .object_server()
             .at(dbus_path.clone(), interface)
             .await?;
-        log::info!("Initialized wayland manager at path:{dbus_path}");
+        let metrics_interface = wayland::metrics::dbus::DBusInterface::new();
+        self.dbus
+            .object_server()
+            .at(dbus_path.clone(), metrics_interface)
+            .await?;
+        log::info!("Initialized wayland manager at path: {dbus_path}");
         Ok(())
     }
 
@@ -99,14 +104,14 @@ impl Manager {
     pub async fn remove_wayland_manager(&self, path: String) -> Result<(), Box<dyn Error>> {
         let id = path
             .split('-')
-            .last()
+            .next_back()
             .ok_or("Wrong id found in wayland gamescope socket file name")?;
         let dbus_path = format!("/org/shadowblip/Gamescope/Wayland{}", id);
         self.dbus
             .object_server()
             .remove::<wayland::dbus::DBusInterface, String>(dbus_path.clone())
             .await?;
-        log::info!("Removed wayland manager at path:{dbus_path}");
+        log::info!("Removed wayland manager at path: {dbus_path}");
         Ok(())
     }
 

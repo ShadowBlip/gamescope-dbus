@@ -165,7 +165,7 @@ impl DBusInterface {
                     return;
                 };
 
-                // log::trace!("Got property change event: {:?}", event);
+                log::trace!("[dispatch_to_dbus] Got property change event: {:?}", event);
 
                 // Emit the property changed signal for this window
                 DBusInterface::window_property_changed(iface_ref.signal_context(), id, event)
@@ -281,6 +281,16 @@ impl DBusInterface {
             .get_all_windows(window_id)
             .map_err(|err| fdo::Error::Failed(err.to_string()))?;
         Ok(value)
+    }
+
+    /// Get the external overlay property for the given window
+    async fn get_external_overlay(&self, window_id: u32) -> fdo::Result<u32> {
+        self.ensure_connected().await;
+        let value = self
+            .xwayland
+            .get_external_overlay(window_id)
+            .map_err(|err| fdo::Error::Failed(err.to_string()))?;
+        Ok(value.unwrap_or_default())
     }
 
     /// Returns the currently set app ID on the given window
@@ -765,7 +775,10 @@ pub async fn dispatch_primary_property_changes(
 
         // Wait for events from the channel and dispatch them to the DBus interface
         while let Ok(event) = rx.recv() {
-            // log::trace!("Got property change event: {:?}", event);
+            log::trace!(
+                "[dispatch_primary_property_changes] Got property change event: {:?}",
+                event
+            );
             dispatch_property_change_to_dbus(conn.clone(), path.clone(), event);
         }
         log::warn!("Stopped listening for property changes");
@@ -849,7 +862,10 @@ fn dispatch_property_change_to_dbus(conn: zbus::Connection, path: String, event:
         };
 
         let iface = iface_ref.get_mut().await;
-        // log::trace!("Got property change event: {:?}", event);
+        log::trace!(
+            "[dispatch_property_change_to_dbus] Got property change event: {:?}",
+            event
+        );
 
         // Match on the type of property that was changed to send the appropriate
         // DBus signal.

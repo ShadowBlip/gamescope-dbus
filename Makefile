@@ -34,8 +34,6 @@ install: build ## Install gamescope-dbus to the given prefix (default: PREFIX=/u
 		$(PREFIX)/bin/$(NAME)
 	install -D -m 644 rootfs/usr/share/dbus-1/session.d/$(DBUS_NAME).conf \
 		$(PREFIX)/share/dbus-1/session.d/$(DBUS_NAME).conf
-	install -D -m 644 rootfs/usr/share/dbus-1/services/$(DBUS_NAME).service \
-		$(PREFIX)/share/dbus-1/services/$(DBUS_NAME).service
 	install -D -m 644 rootfs/usr/lib/systemd/user/$(NAME).service \
 		$(PREFIX)/lib/systemd/user/$(NAME).service
 	@echo ""
@@ -46,7 +44,6 @@ install: build ## Install gamescope-dbus to the given prefix (default: PREFIX=/u
 uninstall: ## Uninstall gamescope-dbus 
 	rm $(PREFIX)/bin/$(NAME)
 	rm $(PREFIX)/share/dbus-1/session.d/$(DBUS_NAME).conf
-	rm $(PREFIX)/share/dbus-1/services/$(DBUS_NAME).service
 	rm $(PREFIX)/lib/systemd/user/$(NAME).service
 	@echo ""
 	@echo "Uninstall completed. Remove service with:" 

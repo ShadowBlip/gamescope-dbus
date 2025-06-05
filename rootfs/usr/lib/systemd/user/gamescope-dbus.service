@@ -2,9 +2,11 @@
 Description=Gamescope DBus Service
 
 [Service]
-Type=dbus
-BusName=org.shadowblip.Gamescope
 ExecStart=/usr/bin/gamescope-dbus
+Restart=on-failure
+RestartSec=1s
+TimeoutStartSec=5s
+TimeoutStopSec=3s
 
 [Install]
 WantedBy=default.target

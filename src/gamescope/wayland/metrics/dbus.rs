@@ -1,71 +1,60 @@
-use std::{
-    sync::{
-        atomic::{AtomicBool, Ordering},
-        Arc,
-    },
-    thread::JoinHandle,
-    time::{Duration, SystemTime},
-};
+use std::time::{Duration, SystemTime};
 
 use gamescope_wayland_client::mangoapp::message::MangoAppMsgV1;
 use thiserror::Error;
-use tokio::time::{error::Elapsed, timeout};
+use tokio::{
+    sync::{
+        mpsc::{self, error::SendTimeoutError},
+        watch,
+    },
+    time::{error::Elapsed, timeout},
+};
 use zbus::{dbus_interface, fdo};
 
 use crate::gamescope::wayland::metrics::mango_app_reader::MangoAppMsgQueueReader;
 
+const TIMEOUT_DURATION: Duration = Duration::from_millis(200);
+
 #[derive(Error, Debug)]
 pub enum MetricsError {
     #[error("failed to read metrics message from gamescope: {0}")]
-    QueueError(#[from] tokio::sync::watch::error::RecvError),
-    #[error("timedout trying to read gamescope queue message: {0}")]
+    QueueError(#[from] watch::error::RecvError),
+    #[error("timed out trying to read gamescope queue message: {0}")]
     QueueTimeout(#[from] Elapsed),
+    #[error("timed out requesting message from gamescope queue")]
+    RequestTimeout(#[from] SendTimeoutError<()>),
 }
 
 impl From<MetricsError> for fdo::Error {
     fn from(value: MetricsError) -> Self {
         match value {
             MetricsError::QueueError(queue_error) => fdo::Error::Failed(queue_error.to_string()),
-            MetricsError::QueueTimeout(queue_error) => fdo::Error::Failed(queue_error.to_string()),
+            MetricsError::QueueTimeout(queue_error) => fdo::Error::Timeout(queue_error.to_string()),
+            MetricsError::RequestTimeout(queue_error) => {
+                fdo::Error::Timeout(queue_error.to_string())
+            }
         }
     }
 }
 
 pub struct DBusInterface {
-    handle: Option<JoinHandle<()>>,
-    cancel_flag: Arc<AtomicBool>,
     state: Option<MangoAppMsgV1>,
     last_update: SystemTime,
-    request_tx: std::sync::mpsc::Sender<()>,
-    response_rx: tokio::sync::watch::Receiver<Option<MangoAppMsgV1>>,
-}
-
-impl Drop for DBusInterface {
-    fn drop(&mut self) {
-        self.cancel_flag.store(true, Ordering::Relaxed);
-        let _ = self.request_tx.send(());
-
-        if let Some(handle) = self.handle.take() {
-            let _ = handle.join();
-        }
-    }
+    request_tx: mpsc::Sender<()>,
+    response_rx: watch::Receiver<Option<MangoAppMsgV1>>,
 }
 
 impl DBusInterface {
     pub fn new() -> Self {
-        let (response_tx, response_rx) = tokio::sync::watch::channel::<Option<MangoAppMsgV1>>(None);
-        let (request_tx, request_rx) = std::sync::mpsc::channel::<()>();
-        let cancel_flag = Arc::new(AtomicBool::new(false));
-        let cancel_flag_thread = cancel_flag.clone();
+        let (response_tx, response_rx) = watch::channel::<Option<MangoAppMsgV1>>(None);
+        let (request_tx, request_rx) = mpsc::channel(256);
 
-        let handle = std::thread::spawn(move || {
+        tokio::task::spawn_blocking(move || {
             let reader = MangoAppMsgQueueReader::new(request_rx, response_tx);
-            reader.run(cancel_flag_thread);
+            reader.run();
         });
 
         Self {
-            handle: Some(handle),
-            cancel_flag,
             state: None,
             last_update: SystemTime::now(),
             request_tx,
@@ -80,24 +69,22 @@ impl DBusInterface {
     /// get the latest frame metrics. Note that calling this frequently can
     /// interfere with MangoApp framerate stats.
     pub async fn update(&mut self) -> fdo::Result<()> {
-        if let Err(err) = self.request_tx.send(()) {
-            log::error!("Error requesting mangoapp queue update, err:{err:?}");
-            return Err(fdo::Error::Failed("Mangoapp queue reader error".to_owned()));
-        }
+        self.request_tx
+            .send_timeout((), TIMEOUT_DURATION)
+            .await
+            .map_err(MetricsError::from)?;
 
-        timeout(Duration::from_millis(10), self.response_rx.changed())
+        timeout(TIMEOUT_DURATION, self.response_rx.changed())
             .await
             .map_err(MetricsError::from)?
             .map_err(MetricsError::from)?;
 
         let msg = &*self.response_rx.borrow();
-
-        if let Some(msg) = msg {
-            if self.state.is_none_or(|state| state != *msg) {
-                self.state = Some(*msg);
-                self.last_update = SystemTime::now();
-            }
-        }
+        let Some(msg) = msg else {
+            return Ok(());
+        };
+        self.state = Some(*msg);
+        self.last_update = SystemTime::now();
 
         Ok(())
     }

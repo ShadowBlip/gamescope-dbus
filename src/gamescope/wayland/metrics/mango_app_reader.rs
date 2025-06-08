@@ -1,29 +1,22 @@
-use std::sync::{
-    atomic::{AtomicBool, Ordering},
-    Arc,
-};
-
 use gamescope_wayland_client::mangoapp::{message::MangoAppMsgV1, queue::MangoAppMsgQueue};
+use tokio::sync::{mpsc, watch};
 
 pub struct MangoAppMsgQueueReader {
     queue: MangoAppMsgQueue,
-    rx: std::sync::mpsc::Receiver<()>,
-    tx: tokio::sync::watch::Sender<Option<MangoAppMsgV1>>,
+    rx: mpsc::Receiver<()>,
+    tx: watch::Sender<Option<MangoAppMsgV1>>,
 }
 
 impl MangoAppMsgQueueReader {
-    pub fn new(
-        rx: std::sync::mpsc::Receiver<()>,
-        tx: tokio::sync::watch::Sender<Option<MangoAppMsgV1>>,
-    ) -> Self {
+    pub fn new(rx: mpsc::Receiver<()>, tx: watch::Sender<Option<MangoAppMsgV1>>) -> Self {
         log::debug!("Starting new mango app msg queue reader");
 
         let queue = MangoAppMsgQueue::new();
         Self { queue, rx, tx }
     }
 
-    pub fn run(mut self, cancel_flag: Arc<AtomicBool>) {
-        while !cancel_flag.load(Ordering::SeqCst) && self.rx.recv().is_ok() {
+    pub fn run(mut self) {
+        while self.rx.blocking_recv().is_some() {
             let msg = match self.queue.recv() {
                 Ok(msg) => msg,
                 Err(err) => {

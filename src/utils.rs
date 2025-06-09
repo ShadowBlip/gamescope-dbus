@@ -11,7 +11,7 @@ pub fn is_gamescope_socket_file(file_name: &str) -> bool {
         && !file_name.ends_with(".lock")
         && file_name
             .split('-')
-            .last()
+            .next_back()
             .map(|x| x.parse::<u16>().is_ok())
             .unwrap_or_default()
 }

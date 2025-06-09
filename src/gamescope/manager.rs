@@ -80,6 +80,10 @@ impl Manager {
 
     /// Starts the wayland manager and adds its dbus interface
     pub async fn start_wayland_manager(&self, path: String) -> Result<(), Box<dyn Error>> {
+        if !is_gamescope_socket_file(path.split("/").last().unwrap_or_default()) {
+            return Err(format!("Gamescope socket file is not present at: {path}").into());
+        }
+
         let id = path
             .split('-')
             .next_back()
@@ -111,6 +115,10 @@ impl Manager {
             .object_server()
             .remove::<wayland::dbus::DBusInterface, String>(dbus_path.clone())
             .await?;
+        self.dbus
+            .object_server()
+            .remove::<wayland::metrics::dbus::DBusInterface, String>(dbus_path.clone())
+            .await?;
         log::info!("Removed wayland manager at path: {dbus_path}");
         Ok(())
     }
@@ -133,9 +141,7 @@ impl Manager {
             log::error!("Error removing wayland manager at path:{path}, err:{err:?}");
         }
 
-        if let Some((name, _)) = self.xwaylands.iter().find(|x| *x.1 == path) {
-            self.waylands.remove(name);
-        }
+        self.waylands.remove(&path);
     }
 
     /// Starts listening for [Command] messages to be sent from clients and

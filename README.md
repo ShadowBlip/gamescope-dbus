@@ -127,7 +127,7 @@ org.shadowblip.Gamescope.XWayland.Primary interface -         -                 
 When Gamescope DBus is running, you can test setting properties with:
 
 ```bash
-busctl set-property org.shadowblip.Gamescope /org/shadowblip/Gamescope/XWayland0 org.shadowblip.Gamescope.Primary BlurMode "u" 2
+busctl --user set-property org.shadowblip.Gamescope /org/shadowblip/Gamescope/XWayland0 org.shadowblip.Gamescope.XWayland.Primary BlurMode "u" 2
 ```
 
 ## License

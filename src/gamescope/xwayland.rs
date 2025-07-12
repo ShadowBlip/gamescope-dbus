@@ -559,11 +559,11 @@ impl DBusInterfacePrimary {
     #[dbus_interface(property)]
     async fn blur_radius(&self) -> fdo::Result<u32> {
         self.ensure_connected().await;
-        //let value = self
-        //    .xwayland
-        //    .get_blur_radius()
-        //    .map_err(|err| fdo::Error::Failed(err.to_string()))?;
-        Ok(0)
+        let value = self
+            .xwayland
+            .get_blur_radius()
+            .map_err(|err| fdo::Error::Failed(err.to_string()))?;
+        Ok(value.unwrap_or_default())
     }
 
     /// Sets the blur radius size

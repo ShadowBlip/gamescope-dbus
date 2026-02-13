@@ -43,7 +43,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Run the manager in its own thread
     tokio::spawn(async move {
-        let _ = manager.run().await;
+        manager.run().await;
     });
 
     signal::ctrl_c().await?;

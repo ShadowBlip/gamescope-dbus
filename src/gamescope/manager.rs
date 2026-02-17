@@ -356,16 +356,22 @@ impl Manager {
         tokio::time::sleep(Duration::from_millis(500)).await;
 
         // Discover new gamescopes with retry logic for race conditions during gamescope restarts
+        const MAX_TRIES: u8 = 3;
         let mut current_xwaylands = Vec::new();
-        for attempt in 0..3 {
-            if let Ok(displays) = gamescope_x11_client::discover_gamescope_displays() {
-                current_xwaylands = displays;
-                break;
+        for attempt in 1..=MAX_TRIES {
+            match gamescope_x11_client::discover_gamescope_displays() {
+                Ok(displays) => {
+                    current_xwaylands = displays;
+                    break;
+                }
+                Err(e) => {
+                    log::warn!("Failed to discover XWaylands (attempt {attempt}/{MAX_TRIES}): {e}");
+                    if attempt == MAX_TRIES {
+                        return Err(e);
+                    }
+                }
             }
-            log::warn!("Failed to discover XWaylands (attempt {}/3)", attempt + 1);
-            if attempt < 2 {
-                tokio::time::sleep(Duration::from_millis(500)).await;
-            }
+            tokio::time::sleep(Duration::from_millis(500)).await;
         }
 
         log::debug!("Discovered XWaylands: {:?}", current_xwaylands);

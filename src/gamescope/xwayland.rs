@@ -35,30 +35,18 @@ impl DBusInterface {
         let mut xwayland = XWayland::new(name.clone());
 
         // Retry connection with backoff since XWayland may not be fully ready
-        let mut last_error: Option<Box<dyn Error>> = None;
-        for attempt in 0..3 {
+        const MAX_TRIES: u8 = 3;
+        for attempt in 1..=MAX_TRIES {
             match xwayland.connect() {
-                Ok(()) => {
-                    last_error = None;
-                    break;
-                }
+                Ok(()) => break,
                 Err(e) => {
-                    log::warn!(
-                        "Failed to connect to XWayland '{}' (attempt {}/3): {:?}",
-                        name,
-                        attempt + 1,
-                        e
-                    );
-                    last_error = Some(e);
-                    if attempt < 2 {
-                        std::thread::sleep(std::time::Duration::from_millis(500));
+                    log::warn!("Failed to connect to XWayland '{name}' (attempt {attempt}/{MAX_TRIES}): {e}");
+                    if attempt == MAX_TRIES {
+                        return Err(e);
                     }
                 }
             }
-        }
-
-        if let Some(e) = last_error {
-            return Err(e);
+            std::thread::sleep(std::time::Duration::from_millis(500));
         }
 
         let watched_windows = Vec::new();

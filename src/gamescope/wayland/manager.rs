@@ -1,5 +1,5 @@
 use std::{error::Error, os::unix::net::UnixStream};
-use tokio::sync::mpsc::{Receiver, Sender};
+use tokio::sync::{mpsc, oneshot};
 use wayland_client::{protocol::wl_registry, Connection, Dispatch, EventQueue, QueueHandle, WEnum};
 
 use gamescope_wayland_client::{
@@ -53,18 +53,22 @@ pub fn target_refresh_cycle_from_u8(value: u8) -> TargetRefreshCycleFlag {
 
 /// Enum for internal wayland commands
 /// Values starting with Command will be sent from consuming code and processed in the WaylandManager
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub enum WaylandMessage {
     // Command used to take a screenshot
-    CommandTakeScreenshot(Sender<Result<(), String>>, String, ScreenshotType),
+    CommandTakeScreenshot(oneshot::Sender<Result<(), String>>, String, ScreenshotType),
     // Command used to toggle screen sleep
     DisplaySleep(
-        Sender<Result<(), String>>,
+        oneshot::Sender<Result<(), String>>,
         DisplayTypeFlags,
         DisplaySleepFlags,
     ),
     // Command used to update fps and refresh rate
-    SetAppTargetRefreshCycle(Sender<Result<(), String>>, u32, TargetRefreshCycleFlag),
+    SetAppTargetRefreshCycle(
+        oneshot::Sender<Result<(), String>>,
+        u32,
+        TargetRefreshCycleFlag,
+    ),
 }
 
 #[derive(Clone, Debug)]
@@ -212,7 +216,7 @@ impl Dispatch<GamescopeInputMethodManager, ()> for WaylandState {
 }
 
 pub struct WaylandManager {
-    command_tx: Sender<WaylandMessage>,
+    command_tx: mpsc::Sender<WaylandMessage>,
     socket_path: String,
 }
 
@@ -229,7 +233,10 @@ impl WaylandManager {
         Ok(instance)
     }
 
-    async fn run(&self, mut command_rx: Receiver<WaylandMessage>) -> Result<(), Box<dyn Error>> {
+    async fn run(
+        &self,
+        mut command_rx: mpsc::Receiver<WaylandMessage>,
+    ) -> Result<(), Box<dyn Error>> {
         let stream = UnixStream::connect(&self.socket_path)?;
         let conn = wayland_client::Connection::from_socket(stream)?;
 
@@ -282,7 +289,7 @@ impl WaylandManager {
                 log::debug!("Wayland Message: {:?}", message);
 
                 let res: Result<(), Box<dyn Error>> = {
-                    match message.clone() {
+                    match message {
                         WaylandMessage::CommandTakeScreenshot(tx, file_path, screenshot_type) => {
                             let res = Self::use_state(&mut state, |state| {
                                 log::info!("Taking screenshot of type: {screenshot_type:?} and saving to {file_path}");
@@ -298,7 +305,7 @@ impl WaylandManager {
                             })
                             .await;
 
-                            if let Err(err) = tx.send(res).await {
+                            if let Err(err) = tx.send(res) {
                                 log::error!("Error sending response back during [WaylandMessage::CommandTakeScreenshot], err:{err:?}");
                             }
                         }
@@ -315,7 +322,7 @@ impl WaylandManager {
                             })
                             .await;
 
-                            if let Err(err) = tx.send(res).await {
+                            if let Err(err) = tx.send(res) {
                                 log::error!("Error sending response back during [WaylandMessage::DisplaySleep], err:{err:?}");
                             }
                         }
@@ -332,8 +339,8 @@ impl WaylandManager {
                             })
                             .await;
 
-                            if let Err(err) = tx.send(res).await {
-                                log::error!("Error sending response back during [WaylandMessage::DisplaySleep], err:{err:?}");
+                            if let Err(err) = tx.send(res) {
+                                log::error!("Error sending response back during [WaylandMessage::SetAppTargetRefreshCycle], err:{err:?}");
                             }
                         }
                     }
@@ -342,7 +349,7 @@ impl WaylandManager {
                 };
 
                 if let Err(err) = res {
-                    log::error!("Error processing wayland message: {message:?}, err:{err:?}");
+                    log::error!("Error processing wayland message: err:{err:?}");
                 }
             }
 

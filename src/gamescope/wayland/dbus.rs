@@ -52,7 +52,7 @@ impl DBusInterface {
     /// 2 => [ScreenshotType::FullComposition]
     /// 3 => [ScreenshotType::ScreenBuffer]
     pub async fn take_screenshot(&self, file_path: String, screenshot_type: u8) -> fdo::Result<()> {
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<(), String>>(16);
+        let (tx, rx) = tokio::sync::oneshot::channel::<Result<(), String>>();
         let Some(screenshot_type): Option<ScreenshotType> =
             screenshot_type_from_u8(screenshot_type)
         else {
@@ -68,13 +68,13 @@ impl DBusInterface {
             .await
             .map_err(|err| to_fdo_error("Error when sending screenshot command", err))?;
 
-        match rx.recv().await {
-            Some(Ok(_)) => {
+        match rx.await {
+            Ok(Ok(_)) => {
                 log::info!("Screenshot taken");
                 Ok(())
             }
-            Some(Err(err)) => Err(to_fdo_error("Error from screenshot command", err.into())),
-            None => Err(fdo_error("No response received for screenshot command")),
+            Ok(Err(err)) => Err(to_fdo_error("Error from screenshot command", err.into())),
+            Err(_) => Err(fdo_error("No response received for screenshot command")),
         }
     }
 
@@ -85,7 +85,7 @@ impl DBusInterface {
     /// 2 => [DisplayTypeFlags::ExternalDisplay]
     /// [sleep] - whether to sleep - true or wake - false
     pub async fn display_sleep(&self, display_type_flags: u8, sleep: bool) -> fdo::Result<()> {
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<(), String>>(16);
+        let (tx, rx) = tokio::sync::oneshot::channel::<Result<(), String>>();
 
         let Some(display_flags) = display_type_from_u8(display_type_flags) else {
             return Err(fdo_error("Invalid display type"));
@@ -102,13 +102,13 @@ impl DBusInterface {
             .await
             .map_err(|err| to_fdo_error("Error when sending sleep command", err))?;
 
-        match rx.recv().await {
-            Some(Ok(_)) => {
+        match rx.await {
+            Ok(Ok(_)) => {
                 log::info!("Screen sleeping");
                 Ok(())
             }
-            Some(Err(err)) => Err(to_fdo_error("Error from screen sleep", err.into())),
-            None => Err(fdo_error("No response from sleep command")),
+            Ok(Err(err)) => Err(to_fdo_error("Error from screen sleep", err.into())),
+            Err(_) => Err(fdo_error("No response from sleep command")),
         }
     }
 
@@ -125,7 +125,7 @@ impl DBusInterface {
         fps: u32,
         refresh_cycle_flags: u8,
     ) -> fdo::Result<()> {
-        let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<(), String>>(16);
+        let (tx, rx) = tokio::sync::oneshot::channel::<Result<(), String>>();
 
         let flags = target_refresh_cycle_from_u8(refresh_cycle_flags);
 
@@ -134,13 +134,13 @@ impl DBusInterface {
             .await
             .map_err(|err| to_fdo_error("Error when sending fps limit command", err))?;
 
-        match rx.recv().await {
-            Some(Ok(_)) => {
+        match rx.await {
+            Ok(Ok(_)) => {
                 log::info!("Fps limit submited");
                 Ok(())
             }
-            Some(Err(err)) => Err(to_fdo_error("Error from fps limit", err.into())),
-            None => Err(fdo_error("No response from fps limit command")),
+            Ok(Err(err)) => Err(to_fdo_error("Error from fps limit", err.into())),
+            Err(_) => Err(fdo_error("No response from fps limit command")),
         }
     }
 }

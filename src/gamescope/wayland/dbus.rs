@@ -1,11 +1,9 @@
 use std::error::Error;
 
-use gamescope_wayland_client::control::gamescope_control::{
-    DisplaySleepFlags, ScreenshotType, TargetRefreshCycleFlag,
-};
+use gamescope_wayland_client::control::gamescope_control::{DisplaySleepFlags, ScreenshotType};
 use zbus::{dbus_interface, fdo, Connection};
 
-use crate::gamescope::wayland::manager::display_type_from_u8;
+use crate::gamescope::wayland::manager::{display_type_from_u8, target_refresh_cycle_from_u8};
 
 use super::manager::{screenshot_type_from_u8, WaylandManager, WaylandMessage};
 
@@ -115,31 +113,21 @@ impl DBusInterface {
     }
 
     /// Updates in-game FPS limit and refresh rate
-    /// internal_display - apply the change to internal display
-    /// allow_refresh_switching - not only update fps but also change the refresh rate
-    /// only_change_refresh_rate - skip updating fps limit
+    /// fps is a number of fps to set
+    /// set to 0 to use a native default
+    /// refresh_cycle_flags u8 converts to TargetRefreshCycleFlag
+    /// It is a bit flag
+    /// 1 => [TargetRefreshCycleFlag::InternalDisplay]
+    /// 2 => [TargetRefreshCycleFlag::AllowRefreshSwitching]
+    /// 4 => [TargetRefreshCycleFlag::OnlyChangeRefreshRate]
     pub async fn set_app_target_refresh_cycle(
         &self,
         fps: u32,
-        internal_display: bool,
-        allow_refresh_switching: bool,
-        only_change_refresh_rate: bool,
+        refresh_cycle_flags: u8,
     ) -> fdo::Result<()> {
         let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<(), String>>(16);
 
-        let flags = {
-            let mut flags = TargetRefreshCycleFlag::empty();
-            if internal_display {
-                flags |= TargetRefreshCycleFlag::InternalDisplay;
-            }
-            if allow_refresh_switching {
-                flags |= TargetRefreshCycleFlag::AllowRefreshSwitching;
-            }
-            if only_change_refresh_rate {
-                flags |= TargetRefreshCycleFlag::OnlyChangeRefreshRate;
-            }
-            flags
-        };
+        let flags = target_refresh_cycle_from_u8(refresh_cycle_flags);
 
         self.wayland
             .send(WaylandMessage::SetAppTargetRefreshCycle(tx, fps, flags))

@@ -7,6 +7,8 @@ use tokio::task::AbortHandle;
 use zbus::{fdo, zvariant::Type, Connection, SignalContext};
 use zbus_macros::dbus_interface;
 
+use crate::property_change_dispatch;
+
 #[derive(Type, serde::Serialize)]
 pub struct WindowGeometry {
     pub width: u16,
@@ -870,41 +872,18 @@ fn dispatch_property_change_to_dbus(conn: zbus::Connection, path: String, event:
         // Match on the type of property that was changed to send the appropriate
         // DBus signal.
         // NOTE: These should only be defined for "read-only" properties
-        // TODO: Maybe this can be automatically expressed better using a macro
-        if event == GamescopeAtom::FocusedApp.to_string() {
-            iface
-                .focused_app_changed(iface_ref.signal_context())
-                .await
-                .unwrap_or_else(|error| log::warn!("Unable to signal value change: {:?}", error));
-        } else if event == GamescopeAtom::FocusableApps.to_string() {
-            iface
-                .focusable_apps_changed(iface_ref.signal_context())
-                .await
-                .unwrap_or_else(|error| log::warn!("Unable to signal value change: {:?}", error));
-        } else if event == GamescopeAtom::FocusedAppGFX.to_string() {
-            iface
-                .focused_app_gfx_changed(iface_ref.signal_context())
-                .await
-                .unwrap_or_else(|error| log::warn!("Unable to signal value change: {:?}", error));
-        } else if event == GamescopeAtom::FocusedWindow.to_string() {
-            iface
-                .focused_window_changed(iface_ref.signal_context())
-                .await
-                .unwrap_or_else(|error| log::warn!("Unable to signal value change: {:?}", error));
-        } else if event == GamescopeAtom::FocusableWindows.to_string() {
-            iface
-                .focusable_windows_changed(iface_ref.signal_context())
-                .await
-                .unwrap_or_else(|error| log::warn!("Unable to signal value change: {:?}", error));
-        } else if event == GamescopeAtom::BaselayerWindow.to_string() {
-            DBusInterfacePrimary::baselayer_window_updated(iface_ref.signal_context())
-                .await
-                .unwrap_or_else(|error| log::warn!("Unable to signal value change: {:?}", error));
-        } else if event == GamescopeAtom::BaselayerAppId.to_string() {
-            DBusInterfacePrimary::baselayer_app_id_updated(iface_ref.signal_context())
-                .await
-                .unwrap_or_else(|error| log::warn!("Unable to signal value change: {:?}", error));
-        }
+        property_change_dispatch!(event, iface, iface_ref,
+        {
+            GamescopeAtom::FocusedApp => focused_app_changed,
+            GamescopeAtom::FocusableApps => focusable_apps_changed,
+            GamescopeAtom::FocusedAppGFX => focused_app_gfx_changed,
+            GamescopeAtom::FocusedWindow => focused_window_changed,
+            GamescopeAtom::FocusableWindows => focusable_windows_changed,
+        },
+        {
+            GamescopeAtom::BaselayerWindow => DBusInterfacePrimary::baselayer_window_updated,
+            GamescopeAtom::BaselayerAppId => DBusInterfacePrimary::baselayer_app_id_updated
+        });
     });
 }
 

@@ -1,6 +1,8 @@
 use std::error::Error;
 
-use gamescope_wayland_client::control::gamescope_control::{DisplaySleepFlags, ScreenshotType};
+use gamescope_wayland_client::control::gamescope_control::{
+    DisplaySleepFlags, ScreenshotType, TargetRefreshCycleFlag,
+};
 use zbus::{dbus_interface, fdo, Connection};
 
 use crate::gamescope::wayland::manager::display_type_from_u8;
@@ -109,6 +111,48 @@ impl DBusInterface {
             }
             Some(Err(err)) => Err(to_fdo_error("Error from screen sleep", err.into())),
             None => Err(fdo_error("No response from sleep command")),
+        }
+    }
+
+    /// Updates in-game FPS limit and refresh rate
+    /// internal_display - apply the change to internal display
+    /// allow_refresh_switching - not only update fps but also change the refresh rate
+    /// only_change_refresh_rate - skip updating fps limit
+    pub async fn set_app_target_refresh_cycle(
+        &self,
+        fps: u32,
+        internal_display: bool,
+        allow_refresh_switching: bool,
+        only_change_refresh_rate: bool,
+    ) -> fdo::Result<()> {
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<(), String>>(16);
+
+        let flags = {
+            let mut flags = TargetRefreshCycleFlag::empty();
+            if internal_display {
+                flags |= TargetRefreshCycleFlag::InternalDisplay;
+            }
+            if allow_refresh_switching {
+                flags |= TargetRefreshCycleFlag::AllowRefreshSwitching;
+            }
+            if only_change_refresh_rate {
+                flags |= TargetRefreshCycleFlag::OnlyChangeRefreshRate;
+            }
+            flags
+        };
+
+        self.wayland
+            .send(WaylandMessage::SetAppTargetRefreshCycle(tx, fps, flags))
+            .await
+            .map_err(|err| to_fdo_error("Error when sending fps limit command", err))?;
+
+        match rx.recv().await {
+            Some(Ok(_)) => {
+                log::info!("Fps limit submited");
+                Ok(())
+            }
+            Some(Err(err)) => Err(to_fdo_error("Error from fps limit", err.into())),
+            None => Err(fdo_error("No response from fps limit command")),
         }
     }
 }

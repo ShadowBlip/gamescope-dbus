@@ -1,11 +1,11 @@
 use std::{error::Error, os::unix::net::UnixStream};
 use tokio::sync::mpsc::{Receiver, Sender};
-use wayland_client::{protocol::wl_registry, Connection, Dispatch, EventQueue, QueueHandle};
+use wayland_client::{protocol::wl_registry, Connection, Dispatch, EventQueue, QueueHandle, WEnum};
 
 use gamescope_wayland_client::{
     control::gamescope_control::{
-        self, DisplaySleepFlags, DisplayTypeFlags, GamescopeControl, ScreenshotFlags,
-        ScreenshotType,
+        self, DisplayFlag, DisplaySleepFlags, DisplayTypeFlags, GamescopeControl, ScreenshotFlags,
+        ScreenshotType, TargetRefreshCycleFlag,
     },
     input_method::gamescope_input_method_manager::{self, GamescopeInputMethodManager},
 };
@@ -41,11 +41,25 @@ pub fn display_type_from_u8(value: u8) -> Option<DisplayTypeFlags> {
 pub enum WaylandMessage {
     // Command used to take a screenshot
     CommandTakeScreenshot(Sender<Result<(), String>>, String, ScreenshotType),
+    // Command used to toggle screen sleep
     DisplaySleep(
         Sender<Result<(), String>>,
         DisplayTypeFlags,
         DisplaySleepFlags,
     ),
+    // Command used to update fps and refresh rate
+    SetAppTargetRefreshCycle(Sender<Result<(), String>>, u32, TargetRefreshCycleFlag),
+}
+
+#[derive(Clone, Debug)]
+// Silence unused warnings until we use this struct more
+#[allow(dead_code)]
+pub struct ActiveDisplay {
+    pub connector_name: String,
+    pub display_make: String,
+    pub display_model: String,
+    pub display_flags: WEnum<DisplayFlag>,
+    pub refresh_rates: Vec<u32>,
 }
 
 // https://github.com/Smithay/wayland-rs/blob/master/wayland-client/examples/simple_window.rs
@@ -55,6 +69,7 @@ pub enum WaylandMessage {
 pub struct WaylandState {
     control: Option<GamescopeControl>,
     input_method_manager: Option<GamescopeInputMethodManager>,
+    active_display: Option<ActiveDisplay>,
 }
 
 impl WaylandState {
@@ -62,6 +77,7 @@ impl WaylandState {
         WaylandState {
             control: None,
             input_method_manager: None,
+            active_display: None,
         }
     }
 }
@@ -114,7 +130,7 @@ impl Dispatch<wl_registry::WlRegistry, ()> for WaylandState {
 /// Handle events going to the [GamescopeControl] object.
 impl Dispatch<GamescopeControl, ()> for WaylandState {
     fn event(
-        _state: &mut Self,
+        state: &mut Self,
         _control: &gamescope_control::GamescopeControl,
         event: gamescope_control::Event,
         _: &(),
@@ -152,6 +168,14 @@ impl Dispatch<GamescopeControl, ()> for WaylandState {
                     display_flags,
                     refresh_rates
                 );
+
+                state.active_display = Some(ActiveDisplay {
+                    connector_name,
+                    display_make,
+                    display_model,
+                    display_flags,
+                    refresh_rates,
+                });
             }
             _ => {}
         }
@@ -270,6 +294,23 @@ impl WaylandManager {
                                     .as_ref()
                                     .unwrap()
                                     .display_sleep(display_type, flags);
+                                conn.flush().ok();
+                                Ok(())
+                            })
+                            .await;
+
+                            if let Err(err) = tx.send(res).await {
+                                log::error!("Error sending response back during [WaylandMessage::DisplaySleep], err:{err:?}");
+                            }
+                        }
+
+                        WaylandMessage::SetAppTargetRefreshCycle(tx, fps, flags) => {
+                            let res = Self::use_state(&mut state, |state| {
+                                state
+                                    .control
+                                    .as_ref()
+                                    .unwrap()
+                                    .set_app_target_refresh_cycle(fps, flags);
                                 conn.flush().ok();
                                 Ok(())
                             })

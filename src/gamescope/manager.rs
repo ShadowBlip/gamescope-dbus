@@ -146,7 +146,7 @@ impl Manager {
 
     /// Starts listening for [Command] messages to be sent from clients and
     /// dispatch those events.
-    pub async fn run(&mut self) -> Result<(), Box<dyn Error>> {
+    pub async fn run(&mut self) {
         log::debug!("Starting manager");
         while let Some(cmd) = self.rx.recv().await {
             log::debug!("Received command: {:?}", cmd);
@@ -154,8 +154,16 @@ impl Manager {
                 Command::FilesystemEvent { event, watch_type } => {
                     self.on_watch_event(event, watch_type).await;
                 }
-                Command::XWaylandAdded { name: _ } => self.update_xwaylands().await?,
-                Command::XWaylandRemoved { name } => self.remove_xwayland(name).await?,
+                Command::XWaylandAdded { name: _ } => {
+                    if let Err(e) = self.update_xwaylands().await {
+                        log::error!("Failed to update XWaylands: {:?}", e);
+                    }
+                }
+                Command::XWaylandRemoved { name } => {
+                    if let Err(e) = self.remove_xwayland(name).await {
+                        log::error!("Failed to remove XWayland: {:?}", e);
+                    }
+                }
                 Command::WaylandAdded { path } => {
                     if !self.waylands.contains(&path) {
                         // Added sleep here because sometimes we get errors regarding broken IO connection due to starting it too fast when gamescope is restarted
@@ -171,7 +179,6 @@ impl Manager {
             }
         }
         log::warn!("Stopping manager");
-        Ok(())
     }
 
     /// Executed when a filesystem watch event occurs
@@ -348,8 +355,25 @@ impl Manager {
         // NOTE: Without this, it seems that we cannot discover the X display
         tokio::time::sleep(Duration::from_millis(500)).await;
 
-        // Discover new gamescopes
-        let current_xwaylands = gamescope_x11_client::discover_gamescope_displays()?;
+        // Discover new gamescopes with retry logic for race conditions during gamescope restarts
+        const MAX_TRIES: u8 = 3;
+        let mut current_xwaylands = Vec::new();
+        for attempt in 1..=MAX_TRIES {
+            match gamescope_x11_client::discover_gamescope_displays() {
+                Ok(displays) => {
+                    current_xwaylands = displays;
+                    break;
+                }
+                Err(e) => {
+                    log::warn!("Failed to discover XWaylands (attempt {attempt}/{MAX_TRIES}): {e}");
+                    if attempt == MAX_TRIES {
+                        return Err(e);
+                    }
+                }
+            }
+            tokio::time::sleep(Duration::from_millis(500)).await;
+        }
+
         log::debug!("Discovered XWaylands: {:?}", current_xwaylands);
 
         // Remove any xwaylands that no longer exist

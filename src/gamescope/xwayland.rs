@@ -26,14 +26,29 @@ pub struct DBusInterface {
 
 impl DBusInterface {
     /// Returns a new instance of the XWayland DBus interface. Will error if
-    /// it cannot establish a connection.
+    /// it cannot establish a connection after multiple attempts.
     pub fn new(
         name: String,
         path: String,
         dbus: Connection,
     ) -> Result<DBusInterface, Box<dyn Error>> {
         let mut xwayland = XWayland::new(name.clone());
-        xwayland.connect()?;
+
+        // Retry connection with backoff since XWayland may not be fully ready
+        const MAX_TRIES: u8 = 3;
+        for attempt in 1..=MAX_TRIES {
+            match xwayland.connect() {
+                Ok(()) => break,
+                Err(e) => {
+                    log::warn!("Failed to connect to XWayland '{name}' (attempt {attempt}/{MAX_TRIES}): {e}");
+                    if attempt == MAX_TRIES {
+                        return Err(e);
+                    }
+                }
+            }
+            std::thread::sleep(std::time::Duration::from_millis(500));
+        }
+
         let watched_windows = Vec::new();
         Ok(DBusInterface {
             path,

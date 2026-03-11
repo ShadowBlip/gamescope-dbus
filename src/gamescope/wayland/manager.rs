@@ -35,6 +35,22 @@ pub fn display_type_from_u8(value: u8) -> Option<DisplayTypeFlags> {
     Some(flags)
 }
 
+pub fn target_refresh_cycle_from_u8(value: u8) -> TargetRefreshCycleFlag {
+    let mut flags = TargetRefreshCycleFlag::empty();
+
+    if value & 0x1 != 0 {
+        flags |= TargetRefreshCycleFlag::InternalDisplay;
+    }
+    if value & 0x2 != 0 {
+        flags |= TargetRefreshCycleFlag::AllowRefreshSwitching;
+    }
+    if value & 0x4 != 0 {
+        flags |= TargetRefreshCycleFlag::OnlyChangeRefreshRate;
+    }
+
+    flags
+}
+
 /// Enum for internal wayland commands
 /// Values starting with Command will be sent from consuming code and processed in the WaylandManager
 #[derive(Clone, Debug)]

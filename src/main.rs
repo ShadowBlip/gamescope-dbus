@@ -3,6 +3,7 @@ use tokio::signal;
 use zbus::{fdo::ObjectManager, Connection};
 
 mod gamescope;
+mod macros;
 pub mod utils;
 mod watcher;
 

@@ -553,7 +553,7 @@ dependencies = [
 [[package]]
 name = "gamescope-x11-client"
 version = "0.1.0"
-source = "git+https://github.com/ShadowBlip/gamescope-x11-client.git?rev=41934d46f7e48c3ad806106bd69e8c28886aa89e#41934d46f7e48c3ad806106bd69e8c28886aa89e"
+source = "git+https://github.com/ShadowBlip/gamescope-x11-client.git?rev=2604c015d85d569ca2aa40cac55066631b5eed0b#2604c015d85d569ca2aa40cac55066631b5eed0b"
 dependencies = [
  "log",
  "strum",

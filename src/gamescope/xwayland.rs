@@ -580,11 +580,9 @@ impl DBusInterfacePrimary {
     #[dbus_interface(property)]
     async fn allow_tearing(&self) -> fdo::Result<bool> {
         self.ensure_connected().await;
-        //let value = self
-        //    .xwayland
-        //    .get_allow_tearing()
-        //    .map_err(|err| fdo::Error::Failed(err.to_string()))?;
-        Ok(false)
+        self.xwayland
+            .get_allow_tearing()
+            .map_err(|err| fdo::Error::Failed(err.to_string()))
     }
 
     /// Sets whether or not Gamescope should be allowed to screen tear
@@ -593,6 +591,35 @@ impl DBusInterfacePrimary {
         self.ensure_connected().await;
         self.xwayland
             .set_allow_tearing(allow)
+            .map_err(|err| fdo::Error::Failed(err.to_string()))?;
+        Ok(())
+    }
+
+    /// Returns true if HDR is supported by the current display
+    /// Doesn't work reliably in nested mode
+    #[dbus_interface(property)]
+    async fn hdr_supported(&self) -> fdo::Result<bool> {
+        self.ensure_connected().await;
+        self.xwayland
+            .get_hdr_support()
+            .map_err(|err| fdo::Error::Failed(err.to_string()))
+    }
+
+    /// Returns true if HDR is enabled
+    #[dbus_interface(property)]
+    async fn hdr_enabled(&self) -> fdo::Result<bool> {
+        self.ensure_connected().await;
+        self.xwayland
+            .get_hdr_enabled()
+            .map_err(|err| fdo::Error::Failed(err.to_string()))
+    }
+
+    /// Sets if HDR should be enabled
+    #[dbus_interface(property)]
+    async fn set_hdr_enabled(&mut self, enable: bool) -> fdo::Result<()> {
+        self.ensure_connected().await;
+        self.xwayland
+            .set_hdr_enabled(enable)
             .map_err(|err| fdo::Error::Failed(err.to_string()))?;
         Ok(())
     }

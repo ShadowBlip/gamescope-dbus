@@ -1,7 +1,9 @@
 use std::error::Error;
 
-use gamescope_wayland_client::control::gamescope_control::ScreenshotType;
+use gamescope_wayland_client::control::gamescope_control::{DisplaySleepFlags, ScreenshotType};
 use zbus::{dbus_interface, fdo, Connection};
+
+use crate::gamescope::wayland::manager::display_type_from_u8;
 
 use super::manager::{screenshot_type_from_u8, WaylandManager, WaylandMessage};
 
@@ -73,6 +75,40 @@ impl DBusInterface {
             }
             Some(Err(err)) => Err(to_fdo_error("Error from screenshot command", err.into())),
             None => Err(fdo_error("No response received for screenshot command")),
+        }
+    }
+
+    /// Sleeps chosen display
+    /// display_type_flags u8 converts to DisplayTypeFlags
+    /// It is a bit flag
+    /// 1 => [DisplayTypeFlags::InternalDisplay]
+    /// 2 => [DisplayTypeFlags::ExternalDisplay]
+    /// [sleep] - whether to sleep - true or wake - false
+    pub async fn display_sleep(&self, display_type_flags: u8, sleep: bool) -> fdo::Result<()> {
+        let (tx, mut rx) = tokio::sync::mpsc::channel::<Result<(), String>>(16);
+
+        let Some(display_flags) = display_type_from_u8(display_type_flags) else {
+            return Err(fdo_error("Invalid display type"));
+        };
+
+        let sleep_flag = if sleep {
+            DisplaySleepFlags::Sleep
+        } else {
+            DisplaySleepFlags::Wake
+        };
+
+        self.wayland
+            .send(WaylandMessage::DisplaySleep(tx, display_flags, sleep_flag))
+            .await
+            .map_err(|err| to_fdo_error("Error when sending sleep command", err))?;
+
+        match rx.recv().await {
+            Some(Ok(_)) => {
+                log::info!("Screen sleeping");
+                Ok(())
+            }
+            Some(Err(err)) => Err(to_fdo_error("Error from screen sleep", err.into())),
+            None => Err(fdo_error("No response from sleep command")),
         }
     }
 }

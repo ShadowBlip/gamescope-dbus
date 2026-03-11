@@ -3,7 +3,10 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use wayland_client::{protocol::wl_registry, Connection, Dispatch, EventQueue, QueueHandle};
 
 use gamescope_wayland_client::{
-    control::gamescope_control::{self, GamescopeControl, ScreenshotFlags, ScreenshotType},
+    control::gamescope_control::{
+        self, DisplaySleepFlags, DisplayTypeFlags, GamescopeControl, ScreenshotFlags,
+        ScreenshotType,
+    },
     input_method::gamescope_input_method_manager::{self, GamescopeInputMethodManager},
 };
 
@@ -17,12 +20,32 @@ pub fn screenshot_type_from_u8(value: u8) -> Option<ScreenshotType> {
     }
 }
 
+pub fn display_type_from_u8(value: u8) -> Option<DisplayTypeFlags> {
+    let mut flags = DisplayTypeFlags::empty();
+    if value & 0x1 != 0 {
+        flags |= DisplayTypeFlags::InternalDisplay;
+    }
+    if value & 0x2 != 0 {
+        flags |= DisplayTypeFlags::ExternalDisplay;
+    }
+
+    if flags.is_empty() {
+        return None;
+    }
+    Some(flags)
+}
+
 /// Enum for internal wayland commands
 /// Values starting with Command will be sent from consuming code and processed in the WaylandManager
 #[derive(Clone, Debug)]
 pub enum WaylandMessage {
     // Command used to take a screenshot
     CommandTakeScreenshot(Sender<Result<(), String>>, String, ScreenshotType),
+    DisplaySleep(
+        Sender<Result<(), String>>,
+        DisplayTypeFlags,
+        DisplaySleepFlags,
+    ),
 }
 
 // https://github.com/Smithay/wayland-rs/blob/master/wayland-client/examples/simple_window.rs
@@ -108,6 +131,27 @@ impl Dispatch<GamescopeControl, ()> for WaylandState {
             }
             gamescope_control::Event::ScreenshotTaken { path } => {
                 log::info!("Screenshot taken at path: {}", path);
+            }
+            gamescope_control::Event::ActiveDisplayInfo {
+                connector_name,
+                display_make,
+                display_model,
+                display_flags,
+                valid_refresh_rates,
+            } => {
+                // Vec<u32> conversion
+                let refresh_rates: Vec<u32> = valid_refresh_rates
+                    .chunks_exact(4)
+                    .map(|b| u32::from_le_bytes(b.try_into().unwrap()))
+                    .collect();
+                log::info!(
+                    "Active display: connector: {} display: {} {} flags: {:?} refresh_rates: {:?}",
+                    connector_name,
+                    display_make,
+                    display_model,
+                    display_flags,
+                    refresh_rates
+                );
             }
             _ => {}
         }
@@ -216,6 +260,23 @@ impl WaylandManager {
 
                             if let Err(err) = tx.send(res).await {
                                 log::error!("Error sending response back during [WaylandMessage::CommandTakeScreenshot], err:{err:?}");
+                            }
+                        }
+
+                        WaylandMessage::DisplaySleep(tx, display_type, flags) => {
+                            let res = Self::use_state(&mut state, |state| {
+                                state
+                                    .control
+                                    .as_ref()
+                                    .unwrap()
+                                    .display_sleep(display_type, flags);
+                                conn.flush().ok();
+                                Ok(())
+                            })
+                            .await;
+
+                            if let Err(err) = tx.send(res).await {
+                                log::error!("Error sending response back during [WaylandMessage::DisplaySleep], err:{err:?}");
                             }
                         }
                     }

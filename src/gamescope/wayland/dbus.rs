@@ -1,9 +1,9 @@
 use std::error::Error;
 
-use gamescope_wayland_client::control::gamescope_control::{DisplaySleepFlags, ScreenshotType};
+use gamescope_wayland_client::control::gamescope_control::{
+    DisplaySleepFlags, DisplayTypeFlags, ScreenshotType, TargetRefreshCycleFlag,
+};
 use zbus::{dbus_interface, fdo, Connection};
-
-use crate::gamescope::wayland::manager::{display_type_from_u8, target_refresh_cycle_from_u8};
 
 use super::manager::{screenshot_type_from_u8, WaylandManager, WaylandMessage};
 
@@ -87,7 +87,7 @@ impl DBusInterface {
     pub async fn display_sleep(&self, display_type_flags: u8, sleep: bool) -> fdo::Result<()> {
         let (tx, rx) = tokio::sync::oneshot::channel::<Result<(), String>>();
 
-        let Some(display_flags) = display_type_from_u8(display_type_flags) else {
+        let Some(display_flags) = DisplayTypeFlags::from_bits(display_type_flags as u32) else {
             return Err(fdo_error("Invalid display type"));
         };
 
@@ -127,7 +127,7 @@ impl DBusInterface {
     ) -> fdo::Result<()> {
         let (tx, rx) = tokio::sync::oneshot::channel::<Result<(), String>>();
 
-        let flags = target_refresh_cycle_from_u8(refresh_cycle_flags);
+        let flags = TargetRefreshCycleFlag::from_bits_truncate(refresh_cycle_flags as u32);
 
         self.wayland
             .send(WaylandMessage::SetAppTargetRefreshCycle(tx, fps, flags))

@@ -641,6 +641,49 @@ impl DBusInterfacePrimary {
         Ok(())
     }
 
+    #[dbus_interface(property)]
+    async fn is_display_external(&self) -> fdo::Result<bool> {
+        self.ensure_connected().await;
+        self.xwayland
+            .get_display_is_external()
+            .map_err(|err| fdo::Error::Failed(err.to_string()))
+    }
+
+    #[dbus_interface(property)]
+    async fn display_refresh_rate(&self) -> fdo::Result<u32> {
+        self.ensure_connected().await;
+        let value = self
+            .xwayland
+            .get_display_refresh_rate()
+            .map_err(|err| fdo::Error::Failed(err.to_string()))?;
+        Ok(value.unwrap_or_default())
+    }
+
+    #[dbus_interface(property)]
+    async fn vrr_supported(&self) -> fdo::Result<bool> {
+        self.ensure_connected().await;
+        self.xwayland
+            .get_vrr_support()
+            .map_err(|err| fdo::Error::Failed(err.to_string()))
+    }
+
+    #[dbus_interface(property)]
+    async fn vrr_enabled(&self) -> fdo::Result<bool> {
+        self.ensure_connected().await;
+        self.xwayland
+            .get_vrr_enabled()
+            .map_err(|err| fdo::Error::Failed(err.to_string()))
+    }
+
+    #[dbus_interface(property)]
+    async fn set_vrr_enabled(&mut self, enable: bool) -> fdo::Result<()> {
+        self.ensure_connected().await;
+        self.xwayland
+            .set_vrr_enabled(enable)
+            .map_err(|err| fdo::Error::Failed(err.to_string()))?;
+        Ok(())
+    }
+
     /// Returns true if the window with the given window ID exists in focusable apps
     #[dbus_interface(out_args("is_focusable"))]
     async fn is_focusable_app(&self, window_id: u32) -> fdo::Result<bool> {
@@ -921,6 +964,10 @@ fn dispatch_property_change_to_dbus(conn: zbus::Connection, path: String, event:
             GamescopeAtom::FocusedAppGFX => focused_app_gfx_changed,
             GamescopeAtom::FocusedWindow => focused_window_changed,
             GamescopeAtom::FocusableWindows => focusable_windows_changed,
+            GamescopeAtom::DisplaySupportsHdr => hdr_supported_changed,
+            GamescopeAtom::DisplayIsExternal => is_display_external_changed,
+            GamescopeAtom::DisplayRefreshRateFeedback => display_refresh_rate_changed,
+            GamescopeAtom::VrrCapable => vrr_supported_changed,
         },
         {
             GamescopeAtom::BaselayerWindow => DBusInterfacePrimary::baselayer_window_updated,

@@ -5,10 +5,11 @@ use gamescope_wayland_client::control::gamescope_control::{
 };
 use zbus::{dbus_interface, fdo, Connection};
 
-use super::manager::{screenshot_type_from_u8, WaylandManager, WaylandMessage};
+use super::manager::{
+    screenshot_type_from_u8, WaylandManager, WaylandMessage, WaylandPropertyChanges,
+};
 
 /// DBus interface implementation for Gamescope Wayland instance.
-#[allow(dead_code)]
 pub struct DBusInterface {
     path: String,
     wayland: WaylandManager,
@@ -24,7 +25,13 @@ impl DBusInterface {
         dbus: Connection,
         socket_path: String,
     ) -> Result<DBusInterface, Box<dyn Error>> {
-        let wayland = WaylandManager::new(socket_path).await?;
+        let mut wayland = WaylandManager::new(socket_path).await?;
+
+        dispatch_property_change_to_dbus(
+            dbus.clone(),
+            path.clone(),
+            wayland.property_dispatch_rx.take().unwrap(),
+        );
 
         Ok(DBusInterface {
             path,
@@ -45,6 +52,20 @@ impl DBusInterface {
 
 #[dbus_interface(name = "org.shadowblip.Gamescope.Wayland")]
 impl DBusInterface {
+    #[dbus_interface(property)]
+    pub async fn refresh_rates(&self) -> fdo::Result<Vec<u32>> {
+        let (tx, rx) = tokio::sync::oneshot::channel::<Option<Vec<u32>>>();
+        self.wayland
+            .send(WaylandMessage::PropertyRefreshRates(tx))
+            .await
+            .map_err(|err| to_fdo_error("Error when sending refresh rates get command", err))?;
+
+        match rx.await {
+            Ok(rates) => Ok(rates.unwrap_or_default()),
+            Err(_) => Err(fdo_error("No response received for refresh rates property")),
+        }
+    }
+
     /// Takes a screenshot using Wayland
     /// the screenshot_type u8 converts to [ScreenshotType]
     /// 0 => [ScreenshotType::AllRealLayers]
@@ -98,7 +119,11 @@ impl DBusInterface {
         };
 
         self.wayland
-            .send(WaylandMessage::DisplaySleep(tx, display_flags, sleep_flag))
+            .send(WaylandMessage::CommandDisplaySleep(
+                tx,
+                display_flags,
+                sleep_flag,
+            ))
             .await
             .map_err(|err| to_fdo_error("Error when sending sleep command", err))?;
 
@@ -130,7 +155,9 @@ impl DBusInterface {
         let flags = TargetRefreshCycleFlag::from_bits_truncate(refresh_cycle_flags as u32);
 
         self.wayland
-            .send(WaylandMessage::SetAppTargetRefreshCycle(tx, fps, flags))
+            .send(WaylandMessage::CommandSetAppTargetRefreshCycle(
+                tx, fps, flags,
+            ))
             .await
             .map_err(|err| to_fdo_error("Error when sending fps limit command", err))?;
 
@@ -143,6 +170,60 @@ impl DBusInterface {
             Err(_) => Err(fdo_error("No response from fps limit command")),
         }
     }
+
+    // Requests frametime in ns for given app
+    // Error if invalid app_id
+    pub async fn request_app_performance_stats(&self, app_id: u32) -> fdo::Result<u64> {
+        let (tx, rx) = tokio::sync::oneshot::channel::<Result<u64, String>>();
+
+        self.wayland
+            .send(WaylandMessage::CommandRequestAppPerformanceStats(
+                tx, app_id,
+            ))
+            .await
+            .map_err(|err| to_fdo_error("Error when requesting performance stats", err))?;
+
+        match rx.await {
+            Ok(Ok(frametime)) => {
+                log::info!("Frametime obtained");
+                Ok(frametime)
+            }
+            Ok(Err(err)) => Err(to_fdo_error("Error from performance command", err.into())),
+            Err(_) => Err(fdo_error("No response from performance command")),
+        }
+    }
+}
+
+/// Dispatch the given event to DBus using async context
+fn dispatch_property_change_to_dbus(
+    conn: zbus::Connection,
+    path: String,
+    mut rx: tokio::sync::mpsc::Receiver<WaylandPropertyChanges>,
+) {
+    tokio::task::spawn(async move {
+        while let Some(property) = rx.recv().await {
+            // Get the object instance at the given path so we can send DBus signal
+            // updates
+            let Ok(iface_ref) = conn
+                .object_server()
+                .interface::<_, DBusInterface>(path.clone())
+                .await
+            else {
+                log::warn!("Not able to find dbus interface to dispatch property change event");
+                return;
+            };
+
+            let iface = iface_ref.get_mut().await;
+
+            match property {
+                WaylandPropertyChanges::RefreshRates => {
+                    iface.refresh_rates_changed(iface_ref.signal_context())
+                }
+            }
+            .await
+            .ok();
+        }
+    });
 }
 
 fn to_fdo_error(description: &str, err: Box<dyn Error>) -> fdo::Error {

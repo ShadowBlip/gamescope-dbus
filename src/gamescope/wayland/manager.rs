@@ -1,5 +1,8 @@
-use std::{error::Error, os::unix::net::UnixStream};
-use tokio::sync::{mpsc, oneshot};
+use std::{error::Error, os::unix::net::UnixStream, time::Duration};
+use tokio::{
+    io::{unix::AsyncFd, Interest},
+    sync::{mpsc, oneshot},
+};
 use wayland_client::{protocol::wl_registry, Connection, Dispatch, EventQueue, QueueHandle, WEnum};
 
 use gamescope_wayland_client::{
@@ -20,24 +23,35 @@ pub fn screenshot_type_from_u8(value: u8) -> Option<ScreenshotType> {
     }
 }
 
+// Enum for internal property update dispatch
+#[derive(Debug)]
+pub enum WaylandPropertyChanges {
+    RefreshRates,
+}
+
 /// Enum for internal wayland commands
 /// Values starting with Command will be sent from consuming code and processed in the WaylandManager
+/// Values starting with Property expect WaylandManager to return a value of given property
 #[derive(Debug)]
 pub enum WaylandMessage {
     // Command used to take a screenshot
     CommandTakeScreenshot(oneshot::Sender<Result<(), String>>, String, ScreenshotType),
     // Command used to toggle screen sleep
-    DisplaySleep(
+    CommandDisplaySleep(
         oneshot::Sender<Result<(), String>>,
         DisplayTypeFlags,
         DisplaySleepFlags,
     ),
     // Command used to update fps and refresh rate
-    SetAppTargetRefreshCycle(
+    CommandSetAppTargetRefreshCycle(
         oneshot::Sender<Result<(), String>>,
         u32,
         TargetRefreshCycleFlag,
     ),
+    // Command used to request performance stats for an app
+    CommandRequestAppPerformanceStats(oneshot::Sender<Result<u64, String>>, u32),
+    // Property list of supported refresh rates
+    PropertyRefreshRates(oneshot::Sender<Option<Vec<u32>>>),
 }
 
 #[derive(Clone, Debug)]
@@ -56,17 +70,21 @@ pub struct ActiveDisplay {
 // This struct represents the state of our app. This simple app does not
 // need any state, by this type still supports the `Dispatch` implementations.
 pub struct WaylandState {
+    property_dispatch_tx: mpsc::Sender<WaylandPropertyChanges>,
     control: Option<GamescopeControl>,
     input_method_manager: Option<GamescopeInputMethodManager>,
     active_display: Option<ActiveDisplay>,
+    last_frametime: u64,
 }
 
 impl WaylandState {
-    fn new() -> Self {
+    fn new(property_dispatch_tx: mpsc::Sender<WaylandPropertyChanges>) -> Self {
         WaylandState {
+            property_dispatch_tx,
             control: None,
             input_method_manager: None,
             active_display: None,
+            last_frametime: 0,
         }
     }
 }
@@ -165,6 +183,22 @@ impl Dispatch<GamescopeControl, ()> for WaylandState {
                     display_flags,
                     refresh_rates,
                 });
+
+                if let Err(err) = state
+                    .property_dispatch_tx
+                    .try_send(WaylandPropertyChanges::RefreshRates)
+                {
+                    log::error!("Failed to send property dispatch event {err:?}");
+                }
+            }
+            gamescope_control::Event::AppPerformanceStats {
+                app_id: _,
+                frametime_ns_lo,
+                frametime_ns_hi,
+            } => {
+                let frametime_lo = frametime_ns_lo as u64;
+                let frametime_hi = frametime_ns_hi as u64;
+                state.last_frametime = frametime_lo | (frametime_hi << 32)
             }
             _ => {}
         }
@@ -187,17 +221,21 @@ impl Dispatch<GamescopeInputMethodManager, ()> for WaylandState {
 pub struct WaylandManager {
     command_tx: mpsc::Sender<WaylandMessage>,
     socket_path: String,
+    pub property_dispatch_rx: Option<mpsc::Receiver<WaylandPropertyChanges>>,
 }
 
 impl WaylandManager {
     pub async fn new(socket_path: String) -> Result<Self, Box<dyn Error>> {
-        let (command_tx, command_rx) = tokio::sync::mpsc::channel::<WaylandMessage>(64);
+        let (command_tx, command_rx) = tokio::sync::mpsc::channel(64);
+        let (property_dispatch_tx, property_dispatch_rx) = tokio::sync::mpsc::channel(64);
+
         let instance = Self {
             command_tx,
+            property_dispatch_rx: Some(property_dispatch_rx),
             socket_path,
         };
 
-        instance.run(command_rx).await?;
+        instance.run(command_rx, property_dispatch_tx).await?;
 
         Ok(instance)
     }
@@ -205,6 +243,7 @@ impl WaylandManager {
     async fn run(
         &self,
         mut command_rx: mpsc::Receiver<WaylandMessage>,
+        property_dispatch_tx: mpsc::Sender<WaylandPropertyChanges>,
     ) -> Result<(), Box<dyn Error>> {
         let stream = UnixStream::connect(&self.socket_path)?;
         let conn = wayland_client::Connection::from_socket(stream)?;
@@ -230,7 +269,7 @@ impl WaylandManager {
         let _registry = display.get_registry(&qh, ());
 
         // Create state for the application
-        let mut state = WaylandState::new();
+        let mut state = WaylandState::new(property_dispatch_tx);
 
         // To actually receive the events, we invoke the `sync_roundtrip` method. This method
         // is special and you will generally only invoke it during the setup of your program:
@@ -254,71 +293,37 @@ impl WaylandManager {
 
         // Run loop to listen for commands
         tokio::task::spawn(async move {
-            while let Some(message) = command_rx.recv().await {
-                log::debug!("Wayland Message: {:?}", message);
+            loop {
+                // Unwrap is safe as long as we dont use event_queue read on any other threads (we dont as of writing)
+                let read_guard = event_queue.prepare_read().unwrap();
+                let async_fd =
+                    AsyncFd::with_interest(read_guard.connection_fd(), Interest::READABLE)
+                        .expect("AsyncFd failed");
 
-                let res: Result<(), Box<dyn Error>> = {
-                    match message {
-                        WaylandMessage::CommandTakeScreenshot(tx, file_path, screenshot_type) => {
-                            let res = Self::use_state(&mut state, |state| {
-                                log::info!("Taking screenshot of type: {screenshot_type:?} and saving to {file_path}");
-
-                                state.control.as_ref().unwrap().take_screenshot(
-                                    file_path,
-                                    screenshot_type,
-                                    ScreenshotFlags::Dummy,
-                                );
-                                Self::dispatch(&conn, &mut event_queue, state)?;
-
-                                Ok(())
-                            })
-                            .await;
-
-                            if let Err(err) = tx.send(res) {
-                                log::error!("Error sending response back during [WaylandMessage::CommandTakeScreenshot], err:{err:?}");
-                            }
-                        }
-
-                        WaylandMessage::DisplaySleep(tx, display_type, flags) => {
-                            let res = Self::use_state(&mut state, |state| {
-                                state
-                                    .control
-                                    .as_ref()
-                                    .unwrap()
-                                    .display_sleep(display_type, flags);
-                                conn.flush().ok();
-                                Ok(())
-                            })
-                            .await;
-
-                            if let Err(err) = tx.send(res) {
-                                log::error!("Error sending response back during [WaylandMessage::DisplaySleep], err:{err:?}");
-                            }
-                        }
-
-                        WaylandMessage::SetAppTargetRefreshCycle(tx, fps, flags) => {
-                            let res = Self::use_state(&mut state, |state| {
-                                state
-                                    .control
-                                    .as_ref()
-                                    .unwrap()
-                                    .set_app_target_refresh_cycle(fps, flags);
-                                conn.flush().ok();
-                                Ok(())
-                            })
-                            .await;
-
-                            if let Err(err) = tx.send(res) {
-                                log::error!("Error sending response back during [WaylandMessage::SetAppTargetRefreshCycle], err:{err:?}");
-                            }
-                        }
+                tokio::select! {
+                    // Use AsyncFd uses epoll on Linux
+                    // We do so to get notified when new content is available in the socket
+                    Ok(_) = async_fd.readable() => {
+                        log::trace!("Wayland socket is readable");
+                        // Asyncfd depends on read guard, we need to drop it first
+                        drop(async_fd);
+                        read_guard.read().ok();
+                        event_queue.dispatch_pending(&mut state).ok();
                     }
 
-                    Ok(())
-                };
+                    message = command_rx.recv() => {
+                        // Asyncfd depends on read guard, we need to drop it first
+                        drop(async_fd);
+                        // Drop read guard since command handlers may want to do reading too
+                        drop(read_guard);
 
-                if let Err(err) = res {
-                    log::error!("Error processing wayland message: err:{err:?}");
+                        let Some(message) = message else { break };
+                        log::debug!("Wayland Message: {:?}", message);
+
+                        if let Err(err) = Self::handle_dbus_message(&conn, &mut event_queue, &mut state, message).await {
+                            log::error!("Error processing wayland message: err:{err:?}");
+                        }
+                    }
                 }
             }
 
@@ -328,20 +333,118 @@ impl WaylandManager {
         Ok(())
     }
 
+    async fn handle_dbus_message(
+        conn: &Connection,
+        event_queue: &mut EventQueue<WaylandState>,
+        state: &mut WaylandState,
+        message: WaylandMessage,
+    ) -> Result<(), Box<dyn Error>> {
+        match message {
+            WaylandMessage::CommandTakeScreenshot(tx, file_path, screenshot_type) => {
+                let res = Self::use_state(state, async |state| {
+                    log::info!(
+                        "Taking screenshot of type: {screenshot_type:?} and saving to {file_path}"
+                    );
+
+                    state.control.as_ref().unwrap().take_screenshot(
+                        file_path,
+                        screenshot_type,
+                        ScreenshotFlags::Dummy,
+                    );
+                    Self::dispatch(&conn, event_queue, state).await?;
+
+                    Ok(())
+                })
+                .await;
+
+                if let Err(_) = tx.send(res) {
+                    log::error!("Error sending response back during [WaylandMessage::CommandTakeScreenshot]");
+                }
+            }
+
+            WaylandMessage::CommandDisplaySleep(tx, display_type, flags) => {
+                let res = Self::use_state(state, async |state| {
+                    state
+                        .control
+                        .as_ref()
+                        .unwrap()
+                        .display_sleep(display_type, flags);
+                    conn.flush().ok();
+                    Ok(())
+                })
+                .await;
+
+                if let Err(_) = tx.send(res) {
+                    log::error!(
+                        "Error sending response back during [WaylandMessage::CommandDisplaySleep]"
+                    );
+                }
+            }
+
+            WaylandMessage::CommandSetAppTargetRefreshCycle(tx, fps, flags) => {
+                let res = Self::use_state(state, async |state| {
+                    state
+                        .control
+                        .as_ref()
+                        .unwrap()
+                        .set_app_target_refresh_cycle(fps, flags);
+                    conn.flush().ok();
+                    Ok(())
+                })
+                .await;
+
+                if let Err(_) = tx.send(res) {
+                    log::error!("Error sending response back during [WaylandMessage::CommandSetAppTargetRefreshCycle]");
+                }
+            }
+
+            WaylandMessage::CommandRequestAppPerformanceStats(tx, app_id) => {
+                let res = Self::use_state(state, async |state| {
+                    state
+                        .control
+                        .as_ref()
+                        .unwrap()
+                        .request_app_performance_stats(app_id);
+                    Self::dispatch(&conn, event_queue, state).await?;
+                    Ok(())
+                })
+                .await;
+
+                if let Err(_) = tx.send(res.map(|()| state.last_frametime)) {
+                    log::error!("Error sending response back during [WaylandMessage::CommandSetAppTargetRefreshCycle]");
+                }
+            }
+
+            WaylandMessage::PropertyRefreshRates(tx) => {
+                let res = state
+                    .active_display
+                    .as_ref()
+                    .map(|disp| disp.refresh_rates.clone());
+                if let Err(_) = tx.send(res) {
+                    log::error!(
+                        "Error sending response back during [WaylandMessage::PropertyRefreshRates]"
+                    );
+                }
+            }
+        }
+
+        Ok(())
+    }
+
     async fn use_state<F>(state: &mut WaylandState, callback: F) -> Result<(), String>
     where
-        F: FnOnce(&mut WaylandState) -> Result<(), String>,
+        F: AsyncFnOnce(&mut WaylandState) -> Result<(), String>,
     {
         if state.control.is_none() {
             return Err("No control found".to_owned());
         }
 
-        callback(state)?;
+        callback(state).await?;
 
         Ok(())
     }
 
-    fn dispatch(
+    async fn dispatch(
         conn: &Connection,
         event_queue: &mut EventQueue<WaylandState>,
         state: &mut WaylandState,
@@ -350,7 +453,22 @@ impl WaylandManager {
             log::error!("Could not flush wayland queue, err:{err:?}");
             err.to_string()
         })?;
-        event_queue.blocking_dispatch(state).map_err(|err| {
+
+        // Wait for readable signal or until a timeout
+        {
+            let read_guard = event_queue.prepare_read().unwrap();
+            let async_fd = AsyncFd::with_interest(read_guard.connection_fd(), Interest::READABLE)
+                .expect("AsyncFd failed");
+            let timeout_result =
+                tokio::time::timeout(Duration::from_millis(100), async_fd.readable()).await;
+            if timeout_result.is_err() {
+                return Err("No response from gamescope".to_owned());
+            }
+            drop(async_fd);
+            read_guard.read().ok();
+        }
+
+        event_queue.dispatch_pending(state).map_err(|err| {
             log::error!("Could not dispatch pending events, err:{err:?}");
             err.to_string()
         })

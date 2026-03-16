@@ -3,6 +3,7 @@ use std::error::Error;
 use gamescope_wayland_client::control::gamescope_control::{
     DisplaySleepFlags, DisplayTypeFlags, ScreenshotType, TargetRefreshCycleFlag,
 };
+use tokio::sync::mpsc;
 use zbus::{dbus_interface, fdo, Connection};
 
 use super::manager::{
@@ -12,7 +13,7 @@ use super::manager::{
 /// DBus interface implementation for Gamescope Wayland instance.
 pub struct DBusInterface {
     path: String,
-    wayland: WaylandManager,
+    wayland: mpsc::Sender<WaylandMessage>,
     dbus: Connection,
 }
 
@@ -25,9 +26,15 @@ impl DBusInterface {
         dbus: Connection,
         socket_path: String,
     ) -> Result<DBusInterface, Box<dyn Error>> {
-        let (wayland, property_dispatch_rx) = WaylandManager::new(socket_path).await?;
+        let (manager, wayland, property_dispatch_rx) = WaylandManager::new(socket_path).await?;
 
         dispatch_property_change_to_dbus(dbus.clone(), path.clone(), property_dispatch_rx);
+
+        tokio::task::spawn(async move {
+            if let Err(e) = manager.run().await {
+                log::error!("Failed to run wayland manager {e:?}");
+            }
+        });
 
         Ok(DBusInterface {
             path,
@@ -54,7 +61,9 @@ impl DBusInterface {
         self.wayland
             .send(WaylandMessage::PropertyRefreshRates(tx))
             .await
-            .map_err(|err| to_fdo_error("Error when sending refresh rates get command", err))?;
+            .map_err(|err| {
+                to_fdo_error("Error when sending refresh rates get command", err.into())
+            })?;
 
         match rx.await {
             Ok(rates) => Ok(rates.unwrap_or_default()),
@@ -83,7 +92,7 @@ impl DBusInterface {
                 screenshot_type,
             ))
             .await
-            .map_err(|err| to_fdo_error("Error when sending screenshot command", err))?;
+            .map_err(|err| to_fdo_error("Error when sending screenshot command", err.into()))?;
 
         match rx.await {
             Ok(Ok(_)) => {
@@ -121,7 +130,7 @@ impl DBusInterface {
                 sleep_flag,
             ))
             .await
-            .map_err(|err| to_fdo_error("Error when sending sleep command", err))?;
+            .map_err(|err| to_fdo_error("Error when sending sleep command", err.into()))?;
 
         match rx.await {
             Ok(Ok(_)) => {
@@ -155,7 +164,7 @@ impl DBusInterface {
                 tx, fps, flags,
             ))
             .await
-            .map_err(|err| to_fdo_error("Error when sending fps limit command", err))?;
+            .map_err(|err| to_fdo_error("Error when sending fps limit command", err.into()))?;
 
         match rx.await {
             Ok(Ok(_)) => {
@@ -177,7 +186,7 @@ impl DBusInterface {
                 tx, app_id,
             ))
             .await
-            .map_err(|err| to_fdo_error("Error when requesting performance stats", err))?;
+            .map_err(|err| to_fdo_error("Error when requesting performance stats", err.into()))?;
 
         match rx.await {
             Ok(Ok(frametime)) => Ok(frametime),

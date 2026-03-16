@@ -219,32 +219,35 @@ impl Dispatch<GamescopeInputMethodManager, ()> for WaylandState {
 }
 
 pub struct WaylandManager {
-    command_tx: mpsc::Sender<WaylandMessage>,
+    command_rx: mpsc::Receiver<WaylandMessage>,
+    property_dispatch_tx: mpsc::Sender<WaylandPropertyChanges>,
     socket_path: String,
 }
 
 impl WaylandManager {
     pub async fn new(
         socket_path: String,
-    ) -> Result<(Self, mpsc::Receiver<WaylandPropertyChanges>), Box<dyn Error>> {
+    ) -> Result<
+        (
+            Self,
+            mpsc::Sender<WaylandMessage>,
+            mpsc::Receiver<WaylandPropertyChanges>,
+        ),
+        Box<dyn Error>,
+    > {
         let (command_tx, command_rx) = tokio::sync::mpsc::channel(64);
         let (property_dispatch_tx, property_dispatch_rx) = tokio::sync::mpsc::channel(64);
 
         let instance = Self {
-            command_tx,
+            command_rx,
+            property_dispatch_tx,
             socket_path,
         };
 
-        instance.run(command_rx, property_dispatch_tx).await?;
-
-        Ok((instance, property_dispatch_rx))
+        Ok((instance, command_tx, property_dispatch_rx))
     }
 
-    async fn run(
-        &self,
-        mut command_rx: mpsc::Receiver<WaylandMessage>,
-        property_dispatch_tx: mpsc::Sender<WaylandPropertyChanges>,
-    ) -> Result<(), Box<dyn Error>> {
+    pub async fn run(mut self) -> Result<(), Box<dyn Error>> {
         let stream = UnixStream::connect(&self.socket_path)?;
         let conn = wayland_client::Connection::from_socket(stream)?;
 
@@ -269,7 +272,7 @@ impl WaylandManager {
         let _registry = display.get_registry(&qh, ());
 
         // Create state for the application
-        let mut state = WaylandState::new(property_dispatch_tx);
+        let mut state = WaylandState::new(self.property_dispatch_tx);
 
         // To actually receive the events, we invoke the `sync_roundtrip` method. This method
         // is special and you will generally only invoke it during the setup of your program:
@@ -292,30 +295,28 @@ impl WaylandManager {
         let socket_path = self.socket_path.clone();
 
         // Run loop to listen for commands
-        tokio::task::spawn(async move {
-            loop {
-                tokio::select! {
-                    // Use AsyncFd uses epoll on Linux
-                    // We do so to get notified when new content is available in the socket
-                    Ok(_) = Self::wait_for_events(&mut event_queue) => {
-                        log::trace!("Wayland socket is readable");
-                        // Asyncfd depends on read guard, we need to drop it first
-                        event_queue.dispatch_pending(&mut state).ok();
-                    }
+        loop {
+            tokio::select! {
+                // Use AsyncFd uses epoll on Linux
+                // We do so to get notified when new content is available in the socket
+                Ok(_) = Self::wait_for_events(&mut event_queue) => {
+                    log::trace!("Wayland socket is readable");
+                    // Asyncfd depends on read guard, we need to drop it first
+                    event_queue.dispatch_pending(&mut state).ok();
+                }
 
-                    message = command_rx.recv() => {
-                        let Some(message) = message else { break };
-                        log::debug!("Wayland Message: {:?}", message);
+                message = self.command_rx.recv() => {
+                    let Some(message) = message else { break };
+                    log::debug!("Wayland Message: {:?}", message);
 
-                        if let Err(err) = Self::handle_dbus_message(&conn, &mut event_queue, &mut state, message).await {
-                            log::error!("Error processing wayland message: err:{err:?}");
-                        }
+                    if let Err(err) = Self::handle_dbus_message(&conn, &mut event_queue, &mut state, message).await {
+                        log::error!("Error processing wayland message: err:{err:?}");
                     }
                 }
             }
+        }
 
-            log::info!("Finished listening to wayland path: {socket_path}");
-        });
+        log::info!("Finished listening to wayland path: {socket_path}");
 
         Ok(())
     }
@@ -344,7 +345,7 @@ impl WaylandManager {
                 })
                 .await;
 
-                if let Err(_) = tx.send(res) {
+                if tx.send(res).is_err() {
                     log::error!("Error sending response back during [WaylandMessage::CommandTakeScreenshot]");
                 }
             }
@@ -361,7 +362,7 @@ impl WaylandManager {
                 })
                 .await;
 
-                if let Err(_) = tx.send(res) {
+                if tx.send(res).is_err() {
                     log::error!(
                         "Error sending response back during [WaylandMessage::CommandDisplaySleep]"
                     );
@@ -380,7 +381,7 @@ impl WaylandManager {
                 })
                 .await;
 
-                if let Err(_) = tx.send(res) {
+                if tx.send(res).is_err() {
                     log::error!("Error sending response back during [WaylandMessage::CommandSetAppTargetRefreshCycle]");
                 }
             }
@@ -397,7 +398,7 @@ impl WaylandManager {
                 })
                 .await;
 
-                if let Err(_) = tx.send(res.map(|()| state.last_frametime)) {
+                if tx.send(res.map(|()| state.last_frametime)).is_err() {
                     log::error!("Error sending response back during [WaylandMessage::CommandSetAppTargetRefreshCycle]");
                 }
             }
@@ -407,7 +408,7 @@ impl WaylandManager {
                     .active_display
                     .as_ref()
                     .map(|disp| disp.refresh_rates.clone());
-                if let Err(_) = tx.send(res) {
+                if tx.send(res).is_err() {
                     log::error!(
                         "Error sending response back during [WaylandMessage::PropertyRefreshRates]"
                     );
@@ -468,9 +469,5 @@ impl WaylandManager {
             log::error!("Could not dispatch pending events, err:{err:?}");
             err.to_string()
         })
-    }
-
-    pub async fn send(&self, msg: WaylandMessage) -> Result<(), Box<dyn Error>> {
-        Ok(self.command_tx.send(msg).await?)
     }
 }

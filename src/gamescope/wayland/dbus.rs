@@ -184,10 +184,7 @@ impl DBusInterface {
             .map_err(|err| to_fdo_error("Error when requesting performance stats", err))?;
 
         match rx.await {
-            Ok(Ok(frametime)) => {
-                log::info!("Frametime obtained");
-                Ok(frametime)
-            }
+            Ok(Ok(frametime)) => Ok(frametime),
             Ok(Err(err)) => Err(to_fdo_error("Error from performance command", err.into())),
             Err(_) => Err(fdo_error("No response from performance command")),
         }

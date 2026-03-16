@@ -294,29 +294,16 @@ impl WaylandManager {
         // Run loop to listen for commands
         tokio::task::spawn(async move {
             loop {
-                // Unwrap is safe as long as we dont use event_queue read on any other threads (we dont as of writing)
-                let read_guard = event_queue.prepare_read().unwrap();
-                let async_fd =
-                    AsyncFd::with_interest(read_guard.connection_fd(), Interest::READABLE)
-                        .expect("AsyncFd failed");
-
                 tokio::select! {
                     // Use AsyncFd uses epoll on Linux
                     // We do so to get notified when new content is available in the socket
-                    Ok(_) = async_fd.readable() => {
+                    Ok(_) = Self::wait_for_events(&mut event_queue) => {
                         log::trace!("Wayland socket is readable");
                         // Asyncfd depends on read guard, we need to drop it first
-                        drop(async_fd);
-                        read_guard.read().ok();
                         event_queue.dispatch_pending(&mut state).ok();
                     }
 
                     message = command_rx.recv() => {
-                        // Asyncfd depends on read guard, we need to drop it first
-                        drop(async_fd);
-                        // Drop read guard since command handlers may want to do reading too
-                        drop(read_guard);
-
                         let Some(message) = message else { break };
                         log::debug!("Wayland Message: {:?}", message);
 
@@ -444,6 +431,18 @@ impl WaylandManager {
         Ok(())
     }
 
+    async fn wait_for_events(event_queue: &mut EventQueue<WaylandState>) -> Result<(), String> {
+        // Unwrap is safe as long as we dont use event_queue read on any other threads (we dont as of writing)
+        let read_guard = event_queue.prepare_read().unwrap();
+        {
+            let async_fd = AsyncFd::with_interest(read_guard.connection_fd(), Interest::READABLE)
+                .map_err(|err| err.to_string())?;
+            let _ = async_fd.readable().await.map_err(|err| err.to_string())?;
+        }
+        read_guard.read().ok();
+        Ok(())
+    }
+
     async fn dispatch(
         conn: &Connection,
         event_queue: &mut EventQueue<WaylandState>,
@@ -455,17 +454,14 @@ impl WaylandManager {
         })?;
 
         // Wait for readable signal or until a timeout
-        {
-            let read_guard = event_queue.prepare_read().unwrap();
-            let async_fd = AsyncFd::with_interest(read_guard.connection_fd(), Interest::READABLE)
-                .expect("AsyncFd failed");
-            let timeout_result =
-                tokio::time::timeout(Duration::from_millis(100), async_fd.readable()).await;
-            if timeout_result.is_err() {
-                return Err("No response from gamescope".to_owned());
-            }
-            drop(async_fd);
-            read_guard.read().ok();
+        let timeout_result = tokio::time::timeout(
+            Duration::from_millis(100),
+            Self::wait_for_events(event_queue),
+        )
+        .await;
+
+        if timeout_result.is_err() {
+            return Err("No response from gamescope".to_owned());
         }
 
         event_queue.dispatch_pending(state).map_err(|err| {

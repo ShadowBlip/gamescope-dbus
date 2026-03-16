@@ -9,7 +9,15 @@ mod watcher;
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    SimpleLogger::new().init().unwrap();
+    #[cfg(debug_assertions)]
+    let log_level = log::LevelFilter::Trace;
+    #[cfg(not(debug_assertions))]
+    let log_level = log::LevelFilter::Info;
+    SimpleLogger::new()
+        .with_level(log_level)
+        .env()
+        .init()
+        .unwrap();
     const VERSION: &str = env!("CARGO_PKG_VERSION");
     log::info!("Starting Gamescope DBus v{}", VERSION);
 

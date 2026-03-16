@@ -25,13 +25,9 @@ impl DBusInterface {
         dbus: Connection,
         socket_path: String,
     ) -> Result<DBusInterface, Box<dyn Error>> {
-        let mut wayland = WaylandManager::new(socket_path).await?;
+        let (wayland, property_dispatch_rx) = WaylandManager::new(socket_path).await?;
 
-        dispatch_property_change_to_dbus(
-            dbus.clone(),
-            path.clone(),
-            wayland.property_dispatch_rx.take().unwrap(),
-        );
+        dispatch_property_change_to_dbus(dbus.clone(), path.clone(), property_dispatch_rx);
 
         Ok(DBusInterface {
             path,

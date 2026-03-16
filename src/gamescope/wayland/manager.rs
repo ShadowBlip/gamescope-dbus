@@ -221,23 +221,23 @@ impl Dispatch<GamescopeInputMethodManager, ()> for WaylandState {
 pub struct WaylandManager {
     command_tx: mpsc::Sender<WaylandMessage>,
     socket_path: String,
-    pub property_dispatch_rx: Option<mpsc::Receiver<WaylandPropertyChanges>>,
 }
 
 impl WaylandManager {
-    pub async fn new(socket_path: String) -> Result<Self, Box<dyn Error>> {
+    pub async fn new(
+        socket_path: String,
+    ) -> Result<(Self, mpsc::Receiver<WaylandPropertyChanges>), Box<dyn Error>> {
         let (command_tx, command_rx) = tokio::sync::mpsc::channel(64);
         let (property_dispatch_tx, property_dispatch_rx) = tokio::sync::mpsc::channel(64);
 
         let instance = Self {
             command_tx,
-            property_dispatch_rx: Some(property_dispatch_rx),
             socket_path,
         };
 
         instance.run(command_rx, property_dispatch_tx).await?;
 
-        Ok(instance)
+        Ok((instance, property_dispatch_rx))
     }
 
     async fn run(

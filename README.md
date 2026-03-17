@@ -75,51 +75,73 @@ busctl --user introspect org.shadowblip.Gamescope /org/shadowblip/Gamescope/XWay
 ```
 
 ```bash
-NAME                                      TYPE      SIGNATURE RESULT/VALUE            FLAGS
-org.freedesktop.DBus.Introspectable       interface -         -                       -
-.Introspect                               method    -         s                       -
-org.freedesktop.DBus.Peer                 interface -         -                       -
-.GetMachineId                             method    -         s                       -
-.Ping                                     method    -         -                       -
-org.freedesktop.DBus.Properties           interface -         -                       -
-.Get                                      method    ss        v                       -
-.GetAll                                   method    s         a{sv}                   -
-.Set                                      method    ssv       -                       -
-.PropertiesChanged                        signal    sa{sv}as  -                       -
-org.shadowblip.Gamescope.XWayland         interface -         -                       -
-.GetAllWindows                            method    u         au                      -
-.GetAppId                                 method    u         u                       -
-.GetWindowChildren                        method    u         au                      -
-.GetWindowName                            method    u         s                       -
-.HasAppId                                 method    u         b                       -
-.SetAppId                                 method    uu        -                       -
+NAME                                      TYPE      SIGNATURE RESULT/VALUE            FLAGS                
+org.freedesktop.DBus.Introspectable       interface -         -                       -                    
+.Introspect                               method    -         s                       -                    
+org.freedesktop.DBus.Peer                 interface -         -                       -                    
+.GetMachineId                             method    -         s                       -                    
+.Ping                                     method    -         -                       -                    
+org.freedesktop.DBus.Properties           interface -         -                       -                    
+.Get                                      method    ss        v                       -                    
+.GetAll                                   method    s         a{sv}                   -                    
+.Set                                      method    ssv       -                       -                    
+.PropertiesChanged                        signal    sa{sv}as  -                       -                    
+org.shadowblip.Gamescope.XWayland         interface -         -                       -                    
+.GetAllWindows                            method    u         au                      -                    
+.GetAppId                                 method    u         u                       -                    
+.GetExternalOverlay                       method    u         u                       -                    
+.GetGeometryForWindow                     method    u         (qqnn)                  -                    
+.GetPidsForWindow                         method    u         au                      -                    
+.GetWindowChildren                        method    u         au                      -                    
+.GetWindowName                            method    u         s                       -                    
+.GetWindowsForPid                         method    u         au                      -                    
+.HasAppId                                 method    u         b                       -                    
+.RemoveAppId                              method    u         -                       -                    
+.SetAppId                                 method    uu        -                       -                    
+.UnwatchWindow                            method    u         -                       -                    
+.WatchWindow                              method    u         -                       -                    
 .Name                                     property  s         ":2"                    emits-change
 .Primary                                  property  b         true                    emits-change
-.RootWindowId                             property  u         962                     emits-change
-org.shadowblip.Gamescope.XWayland.Primary interface -         -                       -
-.GetBaselayerWindow                       method    -         u                       -
-.GetOverlay                               method    u         u                       -
-.IsFocusableApp                           method    u         b                       -
-.RemoveBaselayerWindow                    method    -         -                       -
-.RequestScreenshot                        method    -         -                       -
-.SetBaselayerWindow                       method    u         -                       -
-.SetExternalOverlay                       method    uu        -                       -
-.SetInputFocus                            method    uu        -                       -
-.SetMainApp                               method    u         -                       -
-.SetNotification                          method    uu        -                       -
-.SetOverlay                               method    uu        -                       -
+.RootWindowId                             property  u         835                     emits-change
+.WatchedWindows                           property  au        0                       emits-change
+.WindowLifecycle                          signal    sub       -                       -                    
+.WindowPropertyChanged                    signal    us        -                       -                    
+org.shadowblip.Gamescope.XWayland.Primary interface -         -                       -                    
+.GetBaselayerAppId                        method    -         u                       -                    
+.GetBaselayerWindow                       method    -         u                       -                    
+.GetOverlay                               method    u         u                       -                    
+.IsFocusableApp                           method    u         b                       -                    
+.RemoveBaselayerAppId                     method    -         -                       -                    
+.RemoveBaselayerWindow                    method    -         -                       -                    
+.RequestScreenshot                        method    -         -                       -                    
+.SetBaselayerAppId                        method    u         -                       -                    
+.SetBaselayerWindow                       method    u         -                       -                    
+.SetExternalOverlay                       method    uu        -                       -                    
+.SetInputFocus                            method    uu        -                       -                    
+.SetMainApp                               method    u         -                       -                    
+.SetModeControl                           method    uuuu      -                       -                    
+.SetNotification                          method    uu        -                       -                    
+.SetOverlay                               method    uu        -                       -                    
 .AllowTearing                             property  b         false                   emits-change writable
 .BlurMode                                 property  u         0                       emits-change writable
 .BlurRadius                               property  u         0                       emits-change writable
+.DisplayRefreshRate                       property  u         165                     emits-change
 .FocusableApps                            property  au        1 4194306               emits-change
 .FocusableWindowNames                     property  as        -                       emits-change
-.FocusableWindows                         property  au        3 4194306 4194306 64337 emits-change
+.FocusableWindows                         property  au        3 4194306 4194306 32657 emits-change
 .FocusedApp                               property  u         0                       emits-change
 .FocusedAppGfx                            property  u         0                       emits-change
 .FocusedWindow                            property  u         4194306                 emits-change
 .FpsLimit                                 property  u         0                       emits-change writable
+.HdrEnabled                               property  b         false                   emits-change writable
+.HdrSupported                             property  b         false                   emits-change
+.IsDisplayExternal                        property  b         false                   emits-change
 .OverlayFocused                           property  b         false                   emits-change
-.BaselayerWindowUpdated                   signal    -         -                       -
+.VrrEnabled                               property  b         false                   emits-change writable
+.VrrSupported                             property  b         false                   emits-change
+.BaselayerAppIdUpdated                    signal    -         -                       -                    
+.BaselayerWindowUpdated                   signal    -         -                       -                    
+.WindowCreated                            signal    u         -                       -    
 ```
 
 ## Testing

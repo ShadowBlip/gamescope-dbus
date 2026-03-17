@@ -110,6 +110,16 @@
     <method name="RequestScreenshot">
     </method>
     <!--
+     Sets the display mode control for Gamescope on the given xwayland instance
+     to change the display resolution.
+     -->
+    <method name="SetModeControl">
+      <arg name="xwayland_id" type="u" direction="in"/>
+      <arg name="width" type="u" direction="in"/>
+      <arg name="height" type="u" direction="in"/>
+      <arg name="super_res" type="u" direction="in"/>
+    </method>
+    <!--
      Whether or not Gamescope should be allowed to screen tear
      -->
     <!--
@@ -130,6 +140,7 @@
      Sets the blur radius size
      -->
     <property name="BlurRadius" type="u" access="readwrite"/>
+    <property name="DisplayRefreshRate" type="u" access="read"/>
     <!--
      Return a list of focusable apps
      -->
@@ -162,12 +173,34 @@
      -->
     <property name="FpsLimit" type="u" access="readwrite"/>
     <!--
+     Returns true if HDR is enabled
+     -->
+    <!--
+     Sets if HDR should be enabled
+     -->
+    <property name="HdrEnabled" type="b" access="readwrite"/>
+    <!--
+     Returns true if HDR is supported by the current display
+     Doesn't work reliably in nested mode
+     -->
+    <property name="HdrSupported" type="b" access="read"/>
+    <property name="IsDisplayExternal" type="b" access="read"/>
+    <!--
      Returns whether or not the overlay window is currently focused
      -->
     <property name="OverlayFocused" type="b" access="read"/>
+    <property name="VrrEnabled" type="b" access="readwrite"/>
+    <property name="VrrSupported" type="b" access="read"/>
   </interface>
   <interface name="org.freedesktop.DBus.Introspectable">
     <method name="Introspect">
+      <arg type="s" direction="out"/>
+    </method>
+  </interface>
+  <interface name="org.freedesktop.DBus.Peer">
+    <method name="Ping">
+    </method>
+    <method name="GetMachineId">
       <arg type="s" direction="out"/>
     </method>
   </interface>
@@ -194,13 +227,6 @@
       <arg name="changed_properties" type="a{sv}"/>
       <arg name="invalidated_properties" type="as"/>
     </signal>
-  </interface>
-  <interface name="org.freedesktop.DBus.Peer">
-    <method name="Ping">
-    </method>
-    <method name="GetMachineId">
-      <arg type="s" direction="out"/>
-    </method>
   </interface>
   <interface name="org.shadowblip.Gamescope.XWayland">
     <!--
@@ -247,6 +273,13 @@
       <arg type="s" direction="out"/>
     </method>
     <!--
+     Returns the width, height, x, and y of the window
+     -->
+    <method name="GetGeometryForWindow">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="(qqnn)" direction="out"/>
+    </method>
+    <!--
      Returns the window ids of the children of the given window
      -->
     <method name="GetWindowChildren">
@@ -259,6 +292,13 @@
     <method name="GetAllWindows">
       <arg name="window_id" type="u" direction="in"/>
       <arg type="au" direction="out"/>
+    </method>
+    <!--
+     Get the external overlay property for the given window
+     -->
+    <method name="GetExternalOverlay">
+      <arg name="window_id" type="u" direction="in"/>
+      <arg type="u" direction="out"/>
     </method>
     <!--
      Returns the currently set app ID on the given window
@@ -287,6 +327,14 @@
       <arg name="window_id" type="u" direction="in"/>
       <arg type="b" direction="out"/>
     </method>
+    <!--
+     Fires when a new window is lifecycle
+     -->
+    <signal name="WindowLifecycle">
+      <arg name="event" type="s"/>
+      <arg name="window_id" type="u"/>
+      <arg name="is_primary" type="b"/>
+    </signal>
     <!--
      The X display name of the XWayland display (E.g. ":0", ":1")
      -->

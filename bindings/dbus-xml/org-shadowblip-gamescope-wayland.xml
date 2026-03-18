@@ -1,0 +1,109 @@
+<?xml version="1.0"?>
+<!DOCTYPE node PUBLIC "-//freedesktop//DTD D-BUS Object Introspection 1.0//EN" "http://www.freedesktop.org/standards/dbus/1.0/introspect.dtd">
+<node>
+  <interface name="org.freedesktop.DBus.Introspectable">
+    <method name="Introspect">
+      <arg type="s" direction="out"/>
+    </method>
+  </interface>
+  <interface name="org.shadowblip.Gamescope.Wayland.Metrics">
+    <!--
+     Update the metrics from gamescope. This should be called regularly to
+     get the latest frame metrics. Note that calling this frequently can
+     interfere with MangoApp framerate stats.
+     -->
+    <method name="Update">
+    </method>
+    <property name="AppFrametimeNs" type="t" access="read"/>
+    <property name="AppWantsHdr" type="b" access="read"/>
+    <property name="DisplayRefresh" type="q" access="read"/>
+    <property name="FsrSharpness" type="y" access="read"/>
+    <property name="FsrUpscale" type="y" access="read"/>
+    <!--
+     Unix timestamp (in milliseconds) when `update()` was last called.
+     -->
+    <property name="LastUpdateTime" type="t" access="read"/>
+    <property name="LatencyNs" type="t" access="read"/>
+    <property name="OutputHeight" type="u" access="read"/>
+    <property name="OutputWidth" type="u" access="read"/>
+    <property name="OverlayFocused" type="b" access="read"/>
+    <property name="Pid" type="u" access="read"/>
+    <property name="VisibleFrametimeNs" type="t" access="read"/>
+  </interface>
+  <interface name="org.freedesktop.DBus.Peer">
+    <method name="Ping">
+    </method>
+    <method name="GetMachineId">
+      <arg type="s" direction="out"/>
+    </method>
+  </interface>
+  <interface name="org.freedesktop.DBus.Properties">
+    <method name="Get">
+      <arg name="interface_name" type="s" direction="in"/>
+      <arg name="property_name" type="s" direction="in"/>
+      <arg type="v" direction="out"/>
+    </method>
+    <method name="Set">
+      <arg name="interface_name" type="s" direction="in"/>
+      <arg name="property_name" type="s" direction="in"/>
+      <arg name="value" type="v" direction="in"/>
+    </method>
+    <method name="GetAll">
+      <arg name="interface_name" type="s" direction="in"/>
+      <arg type="a{sv}" direction="out"/>
+    </method>
+    <!--
+     Emits the `org.freedesktop.DBus.Properties.PropertiesChanged` signal.
+     -->
+    <signal name="PropertiesChanged">
+      <arg name="interface_name" type="s"/>
+      <arg name="changed_properties" type="a{sv}"/>
+      <arg name="invalidated_properties" type="as"/>
+    </signal>
+  </interface>
+  <interface name="org.shadowblip.Gamescope.Wayland">
+    <!--
+     Takes a screenshot using Wayland
+     the screenshot_type u8 converts to [ScreenshotType]
+     0 => [ScreenshotType::AllRealLayers]
+     1 => [ScreenshotType::BasePlaneOnly]
+     2 => [ScreenshotType::FullComposition]
+     3 => [ScreenshotType::ScreenBuffer]
+     -->
+    <method name="TakeScreenshot">
+      <arg name="file_path" type="s" direction="in"/>
+      <arg name="screenshot_type" type="y" direction="in"/>
+    </method>
+    <!--
+     Sleeps chosen display
+     display_type_flags u8 converts to DisplayTypeFlags
+     It is a bit flag
+     1 => [DisplayTypeFlags::InternalDisplay]
+     2 => [DisplayTypeFlags::ExternalDisplay]
+     [sleep] - whether to sleep - true or wake - false
+     -->
+    <method name="DisplaySleep">
+      <arg name="display_type_flags" type="y" direction="in"/>
+      <arg name="sleep" type="b" direction="in"/>
+    </method>
+    <!--
+     Updates in-game FPS limit and refresh rate
+     fps is a number of fps to set
+     set to 0 to use a native default
+     refresh_cycle_flags u8 converts to TargetRefreshCycleFlag
+     It is a bit flag
+     1 => [TargetRefreshCycleFlag::InternalDisplay]
+     2 => [TargetRefreshCycleFlag::AllowRefreshSwitching]
+     4 => [TargetRefreshCycleFlag::OnlyChangeRefreshRate]
+     -->
+    <method name="SetAppTargetRefreshCycle">
+      <arg name="fps" type="u" direction="in"/>
+      <arg name="refresh_cycle_flags" type="y" direction="in"/>
+    </method>
+    <method name="RequestAppPerformanceStats">
+      <arg name="app_id" type="u" direction="in"/>
+      <arg type="t" direction="out"/>
+    </method>
+    <property name="RefreshRates" type="au" access="read"/>
+  </interface>
+</node>

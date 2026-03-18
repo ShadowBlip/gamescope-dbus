@@ -456,7 +456,7 @@ impl WaylandManager {
 
         // Wait for readable signal or until a timeout
         let timeout_result = tokio::time::timeout(
-            Duration::from_millis(100),
+            Duration::from_millis(3000),
             Self::wait_for_events(event_queue),
         )
         .await;

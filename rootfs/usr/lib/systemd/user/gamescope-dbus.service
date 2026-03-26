@@ -2,6 +2,8 @@
 Description=Gamescope DBus Service
 
 [Service]
+Type=dbus
+BusName=org.shadowblip.Gamescope
 ExecStart=/usr/bin/gamescope-dbus
 Restart=on-failure
 RestartSec=1s

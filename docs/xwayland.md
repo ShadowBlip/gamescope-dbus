@@ -11,6 +11,7 @@
 | **AllowTearing** | *readwrite* | *b* |  |
 | **BlurMode** | *readwrite* | *u* |  |
 | **BlurRadius** | *readwrite* | *u* |  |
+| **DisplayRefreshRate** | *read* | *u* |  |
 | **FocusableApps** | *read* | *au* |  |
 | **FocusableWindowNames** | *read* | *as* |  |
 | **FocusableWindows** | *read* | *au* |  |
@@ -18,7 +19,12 @@
 | **FocusedAppGfx** | *read* | *u* |  |
 | **FocusedWindow** | *read* | *u* |  |
 | **FpsLimit** | *readwrite* | *u* |  |
+| **HdrEnabled** | *readwrite* | *b* |  |
+| **HdrSupported** | *read* | *b* |  |
+| **IsDisplayExternal** | *read* | *b* |  |
 | **OverlayFocused** | *read* | *b* |  |
+| **VrrEnabled** | *readwrite* | *b* |  |
+| **VrrSupported** | *read* | *b* |  |
 
 ### Methods
 
@@ -30,9 +36,9 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | *in* | *u* |  |
-  | **** | *out* | *b* |  |
-  
+| **window\_id** | *in* | *u* |  |
+| **** | *out* | *b* |  |
+
 
 #### SetMainApp
 
@@ -42,8 +48,8 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | *in* | *u* |  |
-  
+| **window\_id** | *in* | *u* |  |
+
 
 #### SetInputFocus
 
@@ -53,9 +59,9 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | *in* | *u* |  |
-  | **value** | *in* | *u* |  |
-  
+| **window\_id** | *in* | *u* |  |
+| **value** | *in* | *u* |  |
+
 
 #### GetOverlay
 
@@ -65,9 +71,9 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | *in* | *u* |  |
-  | **** | *out* | *u* |  |
-  
+| **window\_id** | *in* | *u* |  |
+| **** | *out* | *u* |  |
+
 
 #### SetOverlay
 
@@ -77,9 +83,9 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | *in* | *u* |  |
-  | **value** | *in* | *u* |  |
-  
+| **window\_id** | *in* | *u* |  |
+| **value** | *in* | *u* |  |
+
 
 #### SetNotification
 
@@ -89,9 +95,9 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | *in* | *u* |  |
-  | **value** | *in* | *u* |  |
-  
+| **window\_id** | *in* | *u* |  |
+| **value** | *in* | *u* |  |
+
 
 #### SetExternalOverlay
 
@@ -101,9 +107,9 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | *in* | *u* |  |
-  | **value** | *in* | *u* |  |
-  
+| **window\_id** | *in* | *u* |  |
+| **value** | *in* | *u* |  |
+
 
 #### GetBaselayerAppId
 
@@ -113,8 +119,8 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **** | *out* | *u* |  |
-  
+| **** | *out* | *u* |  |
+
 
 #### SetBaselayerAppId
 
@@ -124,8 +130,8 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **app\_id** | *in* | *u* |  |
-  
+| **app\_id** | *in* | *u* |  |
+
 
 #### RemoveBaselayerAppId
 
@@ -140,8 +146,8 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **** | *out* | *u* |  |
-  
+| **** | *out* | *u* |  |
+
 
 #### SetBaselayerWindow
 
@@ -151,8 +157,8 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | *in* | *u* |  |
-  
+| **window\_id** | *in* | *u* |  |
+
 
 #### RemoveBaselayerWindow
 
@@ -162,6 +168,20 @@
 #### RequestScreenshot
 
 
+
+
+#### SetModeControl
+
+
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **xwayland\_id** | *in* | *u* |  |
+| **width** | *in* | *u* |  |
+| **height** | *in* | *u* |  |
+| **super\_res** | *in* | *u* |  |
 
 
 
@@ -185,8 +205,8 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | ** | *u* |  |
-  
+| **window\_id** | ** | *u* |  |
+
 
 ## org.freedesktop.DBus.Introspectable
 
@@ -200,69 +220,11 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **** | *out* | *s* |  |
-  
+| **** | *out* | *s* |  |
+
 
 
 ### Signals
-
-## org.freedesktop.DBus.Properties
-
-### Methods
-
-#### Get
-
-
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-  | **interface\_name** | *in* | *s* |  |
-  | **property\_name** | *in* | *s* |  |
-  | **** | *out* | *v* |  |
-  
-
-#### Set
-
-
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-  | **interface\_name** | *in* | *s* |  |
-  | **property\_name** | *in* | *s* |  |
-  | **value** | *in* | *v* |  |
-  
-
-#### GetAll
-
-
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-  | **interface\_name** | *in* | *s* |  |
-  | **** | *out* | *a{sv}* |  |
-  
-
-
-### Signals
-
-#### PropertiesChanged
-
-
-
-##### Arguments
-
-| Name | Direction | Type | Description |
-| --- | :---: | :---: | --- |
-  | **interface\_name** | ** | *s* |  |
-  | **changed\_properties** | ** | *a{sv}* |  |
-  | **invalidated\_properties** | ** | *as* |  |
-  
 
 ## org.freedesktop.DBus.Peer
 
@@ -281,11 +243,69 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **** | *out* | *s* |  |
-  
+| **** | *out* | *s* |  |
+
 
 
 ### Signals
+
+## org.freedesktop.DBus.Properties
+
+### Methods
+
+#### Get
+
+
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **interface\_name** | *in* | *s* |  |
+| **property\_name** | *in* | *s* |  |
+| **** | *out* | *v* |  |
+
+
+#### Set
+
+
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **interface\_name** | *in* | *s* |  |
+| **property\_name** | *in* | *s* |  |
+| **value** | *in* | *v* |  |
+
+
+#### GetAll
+
+
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **interface\_name** | *in* | *s* |  |
+| **** | *out* | *a{sv}* |  |
+
+
+
+### Signals
+
+#### PropertiesChanged
+
+
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **interface\_name** | ** | *s* |  |
+| **changed\_properties** | ** | *a{sv}* |  |
+| **invalidated\_properties** | ** | *as* |  |
+
 
 ## org.shadowblip.Gamescope.XWayland
 
@@ -309,8 +329,8 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | *in* | *u* |  |
-  
+| **window\_id** | *in* | *u* |  |
+
 
 #### UnwatchWindow
 
@@ -320,8 +340,8 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | *in* | *u* |  |
-  
+| **window\_id** | *in* | *u* |  |
+
 
 #### GetPidsForWindow
 
@@ -331,9 +351,9 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | *in* | *u* |  |
-  | **** | *out* | *au* |  |
-  
+| **window\_id** | *in* | *u* |  |
+| **** | *out* | *au* |  |
+
 
 #### GetWindowsForPid
 
@@ -343,9 +363,9 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **pid** | *in* | *u* |  |
-  | **** | *out* | *au* |  |
-  
+| **pid** | *in* | *u* |  |
+| **** | *out* | *au* |  |
+
 
 #### GetWindowName
 
@@ -355,9 +375,21 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | *in* | *u* |  |
-  | **** | *out* | *s* |  |
-  
+| **window\_id** | *in* | *u* |  |
+| **** | *out* | *s* |  |
+
+
+#### GetGeometryForWindow
+
+
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window\_id** | *in* | *u* |  |
+| **** | *out* | *(qqnn)* |  |
+
 
 #### GetWindowChildren
 
@@ -367,9 +399,9 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | *in* | *u* |  |
-  | **** | *out* | *au* |  |
-  
+| **window\_id** | *in* | *u* |  |
+| **** | *out* | *au* |  |
+
 
 #### GetAllWindows
 
@@ -379,9 +411,21 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | *in* | *u* |  |
-  | **** | *out* | *au* |  |
-  
+| **window\_id** | *in* | *u* |  |
+| **** | *out* | *au* |  |
+
+
+#### GetExternalOverlay
+
+
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **window\_id** | *in* | *u* |  |
+| **** | *out* | *u* |  |
+
 
 #### GetAppId
 
@@ -391,9 +435,9 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | *in* | *u* |  |
-  | **** | *out* | *u* |  |
-  
+| **window\_id** | *in* | *u* |  |
+| **** | *out* | *u* |  |
+
 
 #### SetAppId
 
@@ -403,9 +447,9 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | *in* | *u* |  |
-  | **app\_id** | *in* | *u* |  |
-  
+| **window\_id** | *in* | *u* |  |
+| **app\_id** | *in* | *u* |  |
+
 
 #### RemoveAppId
 
@@ -415,8 +459,8 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | *in* | *u* |  |
-  
+| **window\_id** | *in* | *u* |  |
+
 
 #### HasAppId
 
@@ -426,9 +470,9 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window\_id** | *in* | *u* |  |
-  | **** | *out* | *b* |  |
-  
+| **window\_id** | *in* | *u* |  |
+| **** | *out* | *b* |  |
+
 
 
 ### Signals
@@ -441,6 +485,19 @@
 
 | Name | Direction | Type | Description |
 | --- | :---: | :---: | --- |
-  | **window** | ** | *u* |  |
-  | **prop** | ** | *s* |  |
-  
+| **window** | ** | *u* |  |
+| **prop** | ** | *s* |  |
+
+
+#### WindowLifecycle
+
+
+
+##### Arguments
+
+| Name | Direction | Type | Description |
+| --- | :---: | :---: | --- |
+| **event** | ** | *s* |  |
+| **window\_id** | ** | *u* |  |
+| **is\_primary** | ** | *b* |  |
+
